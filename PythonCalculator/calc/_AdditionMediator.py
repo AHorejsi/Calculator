@@ -48,12 +48,12 @@ _ADDITION_OPERATIONS = {
     (NumberList, Quaternion): lambda left, right: NumberList([value + right for value in left]),
     (NumberList, NumberList): lambda left, right: NumberList([leftValue + rightValue
                                                               for (leftValue, rightValue)
-                                                              in zip_longest(left, right, 0)]),
+                                                              in zip_longest(left, right, 0.0)]),
     (Vector, Vector): _vector_plus_vector,
     (Matrix, Matrix): _matrix_plus_matrix
 }
 
-def _do_add(left, right):
+def do_add(left, right):
     types = (type(left), type(right))
     impl = _ADDITION_OPERATIONS.get(types)
 

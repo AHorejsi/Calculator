@@ -48,12 +48,12 @@ _SUBTRACTION_OPERATIONS = {
     (NumberList, Quaternion): lambda left, right: NumberList([value - right for value in left]),
     (NumberList, NumberList): lambda left, right: NumberList([leftValue - rightValue
                                                               for (leftValue, rightValue)
-                                                              in zip_longest(left, right, 0)]),
+                                                              in zip_longest(left, right, 0.0)]),
     (Vector, Vector): _vector_minus_vector,
     (Matrix, Matrix): _matrix_minus_matrix
 }
 
-def _do_subtract(left, right):
+def do_subtract(left, right):
     types = (type(left), type(right))
     impl = _SUBTRACTION_OPERATIONS.get(types)
 

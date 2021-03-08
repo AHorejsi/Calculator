@@ -1,4 +1,5 @@
 from math import nan
+from itertools import zip_longest
 from calc.Complex import Complex
 from calc.Quaternion import Quaternion
 from calc.Vector import Vector
@@ -80,13 +81,16 @@ _DIVISION_MEDIATOR = {
     (NumberList, float): lambda left, right: NumberList([value / right for value in left]),
     (NumberList, Complex): lambda left, right: NumberList([value / right for value in left]),
     (NumberList, Quaternion): lambda left, right: NumberList([value / right for value in left]),
+    (NumberList, NumberList): lambda left, right: NumberList([leftValue / rightValue
+                                                              for (leftValue, rightValue)
+                                                              in zip_longest(left, right, 0.0)]),
     (Matrix, float): lambda left, right: Matrix([value / right for value in left], left.rows, left.cols),
     (Matrix, Complex): lambda left, right: Matrix([value / right for value in left], left.rows, left.cols),
     (Matrix, Quaternion): lambda left, right: Matrix([value / right for value in left], left.rows, left.cols),
     (Matrix, Matrix): lambda left, right: left * right.inverse()
 }
 
-def _do_divide(left, right):
+def do_divide(left, right):
     types = (type(left), type(right))
     impl = _DIVISION_MEDIATOR.get(types)
 

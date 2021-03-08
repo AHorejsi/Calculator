@@ -98,7 +98,7 @@ _MULTIPLICATION_OPERATIONS = {
     (NumberList, Quaternion): lambda left, right: NumberList([value * right for value in left]),
     (NumberList, NumberList): lambda left, right: NumberList([leftValue * rightValue
                                                               for (leftValue, rightValue)
-                                                              in zip_longest(left, right, 0)]),
+                                                              in zip_longest(left, right, 0.0)]),
     (Matrix, float): lambda left, right: Matrix([value * right for value in left], left.rows, left.cols),
     (Matrix, Complex): lambda left, right: Matrix([value * right for value in left], left.rows, left.cols),
     (Matrix, Quaternion): lambda left, right: Matrix([value * right for value in left], left.rows, left.cols),
@@ -106,7 +106,7 @@ _MULTIPLICATION_OPERATIONS = {
     (Matrix, Matrix): _matrix_mult_matrix
 }
 
-def _do_multiply(left, right):
+def do_multiply(left, right):
     types = (type(left), type(right))
     impl = _MULTIPLICATION_OPERATIONS.get(types)
 
