@@ -1,5 +1,5 @@
+from _testcapi import INT_MAX
 from copy import copy
-from heapq import heapify
 from calc.MathEntity import MathEntity
 
 class NumberList(MathEntity):
@@ -19,15 +19,6 @@ class NumberList(MathEntity):
             result += value
 
         return result / len(self)
-
-    def median(self):
-        copyNums = copy(self.__nums)
-        heapify(copyNums)
-
-        if 1 == len(copyNums) % 2:
-            return copyNums[len(copyNums) // 2]
-        else:
-            return (copyNums[len(copyNums) // 2 - 1] + copyNums[len(copyNums) // 2]) / 2
 
     def __iter__(self):
         return iter(self.__nums)

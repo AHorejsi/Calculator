@@ -7,7 +7,7 @@ from calc.NumberList import NumberList
 from calc.Matrix import Matrix
 
 def _real_div_complex(left, right):
-    return _complex_div_complex(Complex(left, 0), right)
+    return _complex_div_complex(Complex(left, 0.0), right)
 
 def _complex_div_complex(left, right):
     conjugateOfRight = right.conjugate()

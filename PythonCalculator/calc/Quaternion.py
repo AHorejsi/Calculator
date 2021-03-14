@@ -23,4 +23,4 @@ class Quaternion(MathEntity):
         return self / abs(self)
 
     def __repr__(self):
-        return str(self.real) + " + " + str(self.imag0) + "i + " + str(self.imag1) + "j + " + str(self.imag2) + "k"
+        return "(" + str(self.real) + "," + str(self.imag0) + "," + str(self.imag1) + "," + str(self.imag2) + ")"

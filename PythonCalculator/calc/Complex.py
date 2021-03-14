@@ -38,4 +38,4 @@ class Complex(MathEntity):
             return (abs(self), argValue)
 
     def __repr__(self):
-        return str(self.real) + " + " + str(self.imag0) + "i"
+        return "(" + str(self.real) + "," + str(self.imag0) + ")"

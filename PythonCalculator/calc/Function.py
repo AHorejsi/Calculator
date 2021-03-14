@@ -1,13 +1,18 @@
-from math import nan, pi, e, log as math_log, exp as math_exp, sin as math_sin, cos as math_cos, acos as math_acos
+from math import nan, pi, e, log as math_log, exp as math_exp, sqrt as math_sqrt, sin as math_sin, cos as math_cos, \
+                sinh as math_sinh, cosh as math_cosh, asin as math_asin, acos as math_acos, atan as math_atan, \
+                asinh as math_asinh, acosh as math_acosh, atanh as math_atanh
 from calc.Complex import Complex
 from calc.Quaternion import Quaternion
 from calc.NumberList import NumberList
+from calc.MathConstant import imag0
 
 def _log_real(value):
     if value > 0.0:
         return math_log(value)
+    elif value < 0.0:
+        return Complex(math_log(-value), -pi)
     else:
-        return math_log(-value) - Complex(0.0, pi)
+        return nan
 
 def _log_complex(value):
     argValue = value.arg()
@@ -30,13 +35,14 @@ def log(value):
         return _log_complex(value)
     elif isinstance(value, Quaternion):
         return _log_quaternion(value)
-    elif isinstance(value, NumberList):
-        return NumberList([log(val) for val in value])
     else:
         return nan
 
 def log10(value):
     return log(value) / math_log(10.0)
+
+def _exp_complex(value):
+    return e ** value
 
 def _exp_quaternion(value):
     vectorPart = Quaternion(0.0, value.imag0, value.imag1, value.imag2)
@@ -48,10 +54,115 @@ def exp(value):
     if isinstance(value, float):
         return math_exp(value)
     elif isinstance(value, Complex):
-        return e ** value
+        return _exp_complex(value)
     elif isinstance(value, Quaternion):
         return _exp_quaternion(value)
+    else:
+        return nan
+
+def _sqrt_complex(value):
+    return value ** 0.5
+
+def _sqrt_quaternion(value):
+    return value ** 0.5
+
+def _sqrt_number_list(value):
+    return NumberList([num ** 0.5 for num in value])
+
+def sqrt(value):
+    if isinstance(value, float):
+        return math_sqrt(value)
+    elif isinstance(value, Complex):
+        return _sqrt_complex(value)
+    elif isinstance(value, Quaternion):
+        return _sqrt_quaternion(value)
     elif isinstance(value, NumberList):
-        return NumberList([exp(val) for val in value])
+        return _sqrt_number_list(value)
+    else:
+        return nan
+
+def sin(value):
+    if isinstance(value, float):
+        return math_sin(value)
+    elif isinstance(value, Complex):
+        return (exp(imag0 * value) - exp(-imag0 * value)) / Complex(0, 2)
+    else:
+        return nan
+
+def cos(value):
+    if isinstance(value, float):
+        return math_cos(value)
+    elif isinstance(value, Complex):
+        return (exp(imag0 * value) + exp(-imag0 * value)) / 2
+    else:
+        return nan
+
+def tan(value):
+    return sin(value) / cos(value)
+
+def sinh(value):
+    if isinstance(value, float):
+        return math_sinh(value)
+    elif isinstance(value, Complex):
+        return (exp(value) - exp(-value)) / 2
+    else:
+        return nan
+
+def cosh(value):
+    if isinstance(value, float):
+        return math_cosh(value)
+    elif isinstance(value, Complex):
+        return (exp(value) + exp(-value)) / 2
+    else:
+        return nan
+
+def tanh(value):
+    return sinh(value) / cosh(value)
+
+def asin(value):
+    if isinstance(value, float):
+        return math_asin(value)
+    elif isinstance(value, Complex):
+        return -imag0 * _log_complex(imag0 * value + _sqrt_complex(1 - value * value))
+    else:
+        return nan
+
+def acos(value):
+    if isinstance(value, float):
+        return math_acos(value)
+    elif isinstance(value, Complex):
+        return pi / 2 + imag0 * _log_complex(imag0 * value + _sqrt_complex(1 - value * value))
+    else:
+        return nan
+
+def atan(value):
+    if isinstance(value, float):
+        return math_atan(value)
+    elif isinstance(value, Complex):
+        return 0.5 * imag0 * (_log_complex(1 - imag0 * value) - _log_complex(1 + imag0 * value))
+    else:
+        return nan
+
+def asinh(value):
+    if isinstance(value, float):
+        return math_asinh(value)
+    elif isinstance(value, Complex):
+        return _log_complex(value + _sqrt_complex(1 + value * value))
+    else:
+        return nan
+
+def acosh(value):
+    if isinstance(value, float):
+        return math_acosh(value)
+    elif isinstance(value, Complex):
+        return _log_complex(value + _sqrt_complex(value + 1) * _sqrt_complex(value - 1))
+    else:
+        return nan
+
+def atanh(value):
+    if isinstance(value, float):
+        return math_atanh(value)
+    elif isinstance(value, Complex):
+        return (_log_complex(1 + value) - _log_complex(1 - value)) / 2
     else:
         return nan
