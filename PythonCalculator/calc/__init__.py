@@ -9,6 +9,15 @@ from calc.MathConstant import imag0, imag1, imag2
 
 if __name__ == "__main__":
     import math
+    import cmath
 
-    x = Quaternion(1.0, 2.0, 3.0, 4.0)
-    print(exp(x))
+    a = -1.0
+    b = 2.0
+    c = -1.0
+    d = 2.0
+
+    x = Complex(a, b)
+    y = complex(c, d)
+
+    print(2.3 ** x)
+    print(2.3 ** y)

@@ -20,13 +20,19 @@ def _log_complex(value):
     if argValue is nan:
         return nan
     else:
-        return math_log(abs(value)) + Complex(0.0, argValue)
+        return Complex(math_log(abs(value)), argValue)
 
 def _log_quaternion(value):
-    vectorPart = Quaternion(0.0, value.imag0, value.imag1, value.imag2)
-    absValue = abs(value)
+    if 0.0 == value.imag0 and 0.0 == value.imag1 and 0.0 == value.imag2:
+        if 0.0 == value.real:
+            return nan
+        else:
+            return Quaternion(_log_real(value.real), 0.0, 0.0, 0.0)
+    else:
+        vectorPart = Quaternion(0.0, value.imag0, value.imag1, value.imag2)
+        absValue = abs(value)
 
-    return math_log(absValue) + vectorPart.normalize() * math_acos(value.real / absValue)
+        return math_log(absValue) + vectorPart.normalize() * math_acos(value.real / absValue)
 
 def log(value):
     if isinstance(value, float):

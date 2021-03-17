@@ -1,4 +1,4 @@
-from math import sqrt, atan, pi, nan
+from math import sqrt, atan2, pi, nan
 from calc.MathEntity import MathEntity
 
 class Complex(MathEntity):
@@ -19,7 +19,7 @@ class Complex(MathEntity):
         return self / abs(self)
 
     def arg(self):
-        if 0 == self.real:
+        if 0.0 == self.real:
             if self.imag0 > 0:
                 return pi / 2
             elif self.imag0 < 0:
@@ -27,15 +27,7 @@ class Complex(MathEntity):
             else:
                 return nan
         else:
-            return atan(self.imag0 / self.real)
-
-    def polar(self):
-        argValue = self.arg()
-
-        if argValue is nan:
-            return nan
-        else:
-            return (abs(self), argValue)
+            return atan2(self.imag0, self.real)
 
     def __repr__(self):
         return "(" + str(self.real) + "," + str(self.imag0) + ")"
