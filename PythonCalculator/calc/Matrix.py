@@ -76,6 +76,8 @@ class Matrix(MathEntity):
 
         return Matrix(new, size, size)
 
+    def inverse(self):
+        pass
 
     def transpose(self):
         new = []
