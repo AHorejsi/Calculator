@@ -82,7 +82,7 @@ _EQUALITY_OPERATIONS = {
     (Matrix, Matrix, float): _matrix_eq_matrix
 }
 
-def do_equals(left, right, diff):
+def equals(left, right, diff):
     types = (type(left), type(right), type(diff))
     impl = _EQUALITY_OPERATIONS.get(types)
 
