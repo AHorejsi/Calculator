@@ -42,7 +42,7 @@ def _number_list_eq_number_list(left, right, diff):
         return False
 
     for (leftValue, rightValue) in zip(left, right):
-        if not do_equals(leftValue, rightValue, diff):
+        if not equals(leftValue, rightValue, diff):
             return False
 
     return True
@@ -52,7 +52,7 @@ def _vector_eq_vector(left, right, diff):
         return False
 
     for (leftValue, rightValue) in zip(left, right):
-        if not do_equals(leftValue, rightValue, diff):
+        if not equals(leftValue, rightValue, diff):
             return False
 
     return True
@@ -62,7 +62,7 @@ def _matrix_eq_matrix(left, right, diff):
         return False
 
     for (leftValue, rightValue) in zip(left, right):
-        if not do_equals(leftValue, rightValue, diff):
+        if not equals(leftValue, rightValue, diff):
             return False
 
     return True
