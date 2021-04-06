@@ -1,4 +1,4 @@
-from math import sqrt
+from calc.Function import sqrt, acos
 from calc.MathEntity import MathEntity
 
 class Vector(MathEntity):
@@ -19,21 +19,43 @@ class Vector(MathEntity):
 
         return sqrt(result)
 
+    def dot(self, other):
+        if len(self) != len(other):
+            raise ArithmeticError("Vectors must be of equal dimensions to have a dot product")
+
+        dotProduct = 0.0
+
+        for (leftValue, rightValue) in zip(self, other):
+            dotProduct += leftValue * rightValue
+
+        return dotProduct
+
+    def cross(self, other):
+        if 3 == len(self) and len(self) == len(other):
+            return None
+        elif 7 == len(self) and len(self) == len(other):
+            return None
+        else:
+            raise ArithmeticError("Both vectors must either have exactly 3 or 7 dimensions to have a cross product")
+
+    def normalize(self):
+        return self / abs(self)
+
+    def angle(self, other):
+        return acos((self.dot(other)) / (abs(self) * abs(other)))
+
     def __iter__(self):
         return iter(self.__position)
 
     def __repr__(self):
         string = "<"
-        index = 0
 
-        while index < len(self):
+        for index in range(len(self)):
             string += repr(self[index])
 
             if len(self) - 1 == index:
                 string += ">"
             else:
                 string += ","
-
-            index += 1
 
         return string

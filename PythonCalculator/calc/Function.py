@@ -3,7 +3,6 @@ from math import nan, pi, e, log as math_log, exp as math_exp, sqrt as math_sqrt
                 asinh as math_asinh, acosh as math_acosh, atanh as math_atanh
 from calc.Complex import Complex
 from calc.Quaternion import Quaternion
-from calc.NumberList import NumberList
 from calc.MathConstant import imag0
 
 def _log_real(value):
@@ -72,9 +71,6 @@ def _sqrt_complex(value):
 def _sqrt_quaternion(value):
     return value ** 0.5
 
-def _sqrt_number_list(value):
-    return NumberList([num ** 0.5 for num in value])
-
 def sqrt(value):
     if isinstance(value, float):
         return math_sqrt(value)
@@ -82,8 +78,6 @@ def sqrt(value):
         return _sqrt_complex(value)
     elif isinstance(value, Quaternion):
         return _sqrt_quaternion(value)
-    elif isinstance(value, NumberList):
-        return _sqrt_number_list(value)
     else:
         return nan
 

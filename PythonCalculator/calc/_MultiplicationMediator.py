@@ -64,7 +64,7 @@ _MULTIPLICATION_OPERATIONS = {
     (float, Matrix): lambda left, right: Matrix([left * value for value in right], right.rows, right.cols),
     (Complex, float): lambda left, right: Complex(left.real * right, left.imag0 * right),
     (Complex, Complex): lambda left, right: Complex(left.real * right.real - left.imag0 * right.imag0,
-                                                    left.real  * right.imag0 + left.imag0 * right.real),
+                                                    left.real * right.imag0 + left.imag0 * right.real),
     (Complex, Quaternion): lambda left, right: Quaternion(left.real * right.real - left.imag0 * right.imag0,
                                                           left.real * right.imag0 + right.real * left.imag0,
                                                           left.real * right.imag1 - left.imag0 * right.imag2,

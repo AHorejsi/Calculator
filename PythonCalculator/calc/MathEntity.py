@@ -54,5 +54,8 @@ class MathEntity:
         from calc._ExponentiationMediator import do_exponent
         return do_exponent(other, self)
 
+    def __pos__(self):
+        return self
+
     def __neg__(self):
         return self * -1

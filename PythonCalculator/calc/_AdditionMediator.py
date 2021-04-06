@@ -8,7 +8,7 @@ from calc.Matrix import Matrix
 
 def _vector_plus_vector(left, right):
     if len(left) != len(right):
-        return nan
+        raise ArithmeticError("Vectors must be of equal dimensions to be added together")
 
     new = []
 
@@ -19,7 +19,7 @@ def _vector_plus_vector(left, right):
 
 def _matrix_plus_matrix(left, right):
     if left.rows != right.rows or left.cols != right.cols:
-        return nan
+        raise ArithmeticError("Matrices must be of equal dimensions to be added together")
 
     new = []
 
