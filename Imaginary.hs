@@ -210,7 +210,7 @@ module Imaginary (
     cmultq :: (Num a) => Complex a -> Quaternion a -> Quaternion a
     cmultq (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion realResult imag0Result imag1Result imag2Result
         where realResult = leftReal * rightReal - leftImag0 * rightImag0
-              imag0Result = leftReal * rightImag0 + leftImag0 + rightReal
+              imag0Result = leftReal * rightImag0 + leftImag0 * rightReal
               imag1Result = leftReal * rightImag1 - leftImag0 * rightImag2
               imag2Result = leftReal * rightImag2 + leftImag0 * rightImag1
 
