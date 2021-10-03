@@ -363,6 +363,12 @@ module Imaginary (
               a = Quaternion 0 imag0 imag1 imag2
               b = qabs a
 
+    csqrt :: (RealFloat a, Eq a) => Complex a -> Complex a
+    csqrt com = cpowr com 0.5
+
+    qsqrt :: (RealFloat a, Eq a) => Quaternion a -> Quaternion a
+    qsqrt quat = qpowr quat 0.5
+
     csin :: (Floating a) => Complex a -> Complex a
     csin (Complex real imag0) = Complex ((sin real) * (cosh imag0)) ((cos real) * (sinh imag0))
 
@@ -381,4 +387,56 @@ module Imaginary (
     ctanh :: (Floating a) => Complex a -> Complex a
     ctanh com = cdivc (csinh com) (ccosh com)
 
+    casin :: (RealFloat a) => Complex a -> Complex a
+    casin com = cmultc a g
+        where a = cneg cI
+              b = cmultc com com
+              c = rminusc 1 b
+              d = csqrt c
+              e = cmultc cI com
+              f = cplusc d e
+              g = clog f
     
+    cacos :: (RealFloat a) => Complex a -> Complex a
+    cacos com = rplusc (pi / 2) g
+        where a = cmultc com com
+              b = rminusc 1 a
+              c = csqrt b
+              d = cmultc cI com
+              e = cplusc c d
+              f = clog e
+              g = cmultc cI f
+
+    catan :: (RealFloat a) => Complex a -> Complex a
+    catan com = cdivr g 2
+        where a = cmultc cI com
+              b = rminusc 1 a
+              c = rplusc 1 a
+              d = clog b
+              e = clog c
+              f = cminusc d e
+              g = cmultc cI f
+
+    casinh :: (RealFloat a) => Complex a -> Complex a
+    casinh com = clog d
+        where a = cmultc com com
+              b = rplusc 1 a
+              c = csqrt b
+              d = cplusc com c
+
+    cacosh :: (RealFloat a) => Complex a -> Complex a
+    cacosh com = clog f
+        where a = cplusr com 1
+              b = cminusr com 1
+              c = csqrt a
+              d = csqrt b
+              e = cmultc c d
+              f = cplusc com e
+
+    catanh :: (RealFloat a) => Complex a -> Complex a
+    catanh com = cdivr e 2
+        where a = rplusc 1 com
+              b = rminusc 1 com
+              c = clog a
+              d = clog b
+              e = cminusc c d
