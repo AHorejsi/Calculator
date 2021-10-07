@@ -179,7 +179,7 @@ module Imaginary (
     rminusq leftReal (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal - rightReal) (-rightImag0) (-rightImag1) (-rightImag2)
 
     qminusr :: (Num a) => Quaternion a -> a -> Quaternion a
-    qminusr (Quaternion leftReal leftImag0 leftImag1 leftImag2) rightReal = Quaternion (leftReal + rightReal) leftImag0 leftImag1 leftImag2
+    qminusr (Quaternion leftReal leftImag0 leftImag1 leftImag2) rightReal = Quaternion (leftReal - rightReal) leftImag0 leftImag1 leftImag2
 
     cminusq :: (Num a) => Complex a -> Quaternion a -> Quaternion a
     cminusq (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal - rightReal) (leftImag0 - rightImag0) (-rightImag1) (-rightImag2)
