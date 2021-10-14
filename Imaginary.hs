@@ -1,6 +1,12 @@
 module Imaginary (
     Complex(Complex),
     Quaternion(Quaternion),
+    creal,
+    cimag0,
+    qreal,
+    qimag0,
+    qimag1,
+    qimag2,
     c0,
     c1,
     cI,
@@ -283,10 +289,10 @@ module Imaginary (
     qconj (Quaternion real imag0 imag1 imag2) = Quaternion real (-imag0) (-imag1) (-imag2)
 
     cneg :: (Num a) => Complex a -> Complex a
-    cneg = rmultc (-1)
+    cneg = rmultc $ -1
 
     qneg :: (Num a) => Quaternion a -> Quaternion a
-    qneg = rmultq (-1)
+    qneg = rmultq $ -1
 
     cabs :: (Floating a) => Complex a -> a
     cabs (Complex real imag0) = sqrt $ real * real + imag0 * imag0
@@ -310,24 +316,21 @@ module Imaginary (
               conj = qconj quat
 
     rpowc :: (RealFloat a) => a -> Complex a -> Complex a
-    rpowc leftReal (Complex rightReal rightImag0)
-        | (0 == rightReal && 0 == rightImag0) = c1
-        | (0 == leftReal) = c0
-        | otherwise = rmultc (leftReal ** rightReal) (Complex (cos a) (sin a))
+    rpowc _ (Complex 0 0) = c1
+    rpowc 0 _ = c0
+    rpowc leftReal (Complex rightReal rightImag0) = rmultc (leftReal ** rightReal) (Complex (cos a) (sin a))
         where a = (log leftReal) * rightImag0
 
     cpowr :: (RealFloat a) => Complex a -> a -> Complex a
-    cpowr left right
-        | (0 == right) = c1
-        | (0 == (creal left) && 0 == (cimag0 left)) = c0
-        | otherwise = rmultc ((cabs left) ** right) (Complex (cos a) (sin a))
+    cpowr _ 0 = c1
+    cpowr (Complex 0 0) _ = c0
+    cpowr left right = rmultc ((cabs left) ** right) (Complex (cos a) (sin a))
         where a = right * (carg left)
 
     cpowc :: (RealFloat a) => Complex a -> Complex a -> Complex a
-    cpowc left (Complex rightReal rightImag0)
-        | (0 == rightReal && 0 == rightImag0) = c1
-        | (0 == leftReal && 0 == leftImag0) = c0
-        | otherwise = Complex (d * (cos c)) (d * (sin c))
+    cpowc _ (Complex 0 0) = c1
+    cpowc (Complex 0 0) _ = c0
+    cpowc left (Complex rightReal rightImag0) = Complex (d * (cos c)) (d * (sin c))
         where leftReal = creal left
               leftImag0 = cimag0 left
               a = leftReal * leftReal + leftImag0 * leftImag0
@@ -336,91 +339,51 @@ module Imaginary (
               d = (a ** (rightReal / 2)) * (exp $ (-rightImag0) * b)
 
     rpowq :: (RealFloat a) => a -> Quaternion a -> Quaternion a
-    rpowq left right
-        | (0 == rightReal && 0 == rightImag0 && 0 == rightImag1 && 0 == rightImag2) = q1
-        | (0 == left) = q0
-        | otherwise = qexp $ rmultq (log left) right
-        where rightReal = qreal right
-              rightImag0 = qimag0 right
-              rightImag1 = qimag1 right
-              rightImag2 = qimag2 right
+    rpowq _ (Quaternion 0 0 0 0) = q1
+    rpowq 0 _ = q0
+    rpowq left right = qexp $ rmultq (log left) right
 
     qpowr :: (RealFloat a) => Quaternion a -> a -> Quaternion a
-    qpowr left right
-        | (0 == right) = q1
-        | (0 == leftReal && 0 == leftImag0 && 0 == leftImag1 && 0 == leftImag2) = q0
-        | otherwise = qexp $ qmultr (qlog left) right
-        where leftReal = qreal left
-              leftImag0 = qimag0 left
-              leftImag1 = qimag1 left
-              leftImag2 = qimag2 left
+    qpowr _ 0 = q1
+    qpowr (Quaternion 0 0 0 0) _ = q0
+    qpowr left right = qexp $ qmultr (qlog left) right
 
     cpowq :: (RealFloat a) => Complex a -> Quaternion a -> Quaternion a
-    cpowq left right
-        | (0 == rightReal && 0 == rightImag0 && 0 == rightImag1 && 0 == rightImag2) = q1
-        | (0 == leftReal && 0 == leftImag0) = q0
-        | otherwise = qexp $ cmultq (clog left) right
-        where leftReal = creal left
-              leftImag0 = cimag0 left
-              rightReal = qreal right
-              rightImag0 = qimag0 right
-              rightImag1 = qimag1 right
-              rightImag2 = qimag2 right
+    cpowq _ (Quaternion 0 0 0 0) = q1
+    cpowq (Complex 0 0) _ = q0
+    cpowq left right = qexp $ cmultq (clog left) right
 
     qpowc :: (RealFloat a) => Quaternion a -> Complex a -> Quaternion a
-    qpowc left right
-        | (0 == rightReal && 0 == rightImag0) = q1
-        | (0 == leftReal && 0 == leftImag0 && 0 == leftImag1 && 0 == leftImag2) = q0
-        | otherwise = qexp $ qmultc (qlog left) right
-        where leftReal = qreal left
-              leftImag0 = qimag0 left
-              leftImag1 = qimag1 left
-              leftImag2 = qimag2 left
-              rightReal = creal right
-              rightImag0 = cimag0 right
+    qpowc _ (Complex 0 0) = q1
+    qpowc (Quaternion 0 0 0 0) _ = q0
+    qpowc left right = qexp $ qmultc (qlog left) right
 
     qpowq :: (RealFloat a) => Quaternion a -> Quaternion a -> Quaternion a
-    qpowq left right
-        | (0 == rightReal && 0 == rightImag0 && 0 == rightImag1 && 0 == rightImag2) = q1
-        | (0 == leftReal && 0 == leftImag0 && 0 == leftImag1 && 0 == leftImag2) = q0
-        | otherwise = qexp $ qmultq (qlog left) right
-        where leftReal = qreal left
-              leftImag0 = qimag0 left
-              leftImag1 = qimag1 left
-              leftImag2 = qimag2 left
-              rightReal = qreal right
-              rightImag0 = qimag0 right
-              rightImag1 = qimag1 right
-              rightImag2 = qimag2 right
+    qpowq _ (Quaternion 0 0 0 0) = q1
+    qpowq (Quaternion 0 0 0 0) _ = q0
+    qpowq left right = qexp $ qmultq (qlog left) right
     
     carg :: (RealFloat a) => Complex a -> a
-    carg com
-        | not (0 == real && 0 == imag0) = atan2 imag0 real
-        | otherwise = if imag0 < 0 then (-pi) / 2 else if imag0 > 0 then pi / 2 else 0.0
-        where real = creal com
-              imag0 = cimag0 com
+    carg (Complex _ 0) = 0.0
+    carg (Complex 0 imag0) = if imag0 < 0 then (-pi) / 2 else if imag0 > 0 then pi / 2 else 0.0
+    carg (Complex real imag0) = atan2 imag0 real
 
     clog :: (RealFloat a) => Complex a -> Complex a
-    clog com
-        | (0 == (creal com) && 0 == (cimag0 com)) = cNegInf
-        | otherwise = Complex (log $ cabs com) (carg com)
+    clog (Complex 0 0) = cNegInf
+    clog (Complex real 0) = Complex (log real) 0
+    clog com = Complex (log $ cabs com) (carg com)
 
     qlog :: (RealFloat a) => Quaternion a -> Quaternion a
-    qlog quat
-        | (realIsZero && imag0IsZero && imag1IsZero && imag2IsZero) = qNegInf
-        | (imag0IsZero && imag1IsZero && imag2IsZero) = Quaternion (log real) 0 0 0
-        | (imag1IsZero && imag2IsZero) = Quaternion (creal asComplex) (cimag0 asComplex) 0 0
-        | otherwise = rplusq (log a) (qmultr (qnorm $ Quaternion 0 imag0 imag1 imag2) (acos $ real / a))
+    qlog (Quaternion 0 0 0 0) = qNegInf
+    qlog (Quaternion real 0 0 0) = Quaternion (log real) 0 0 0
+    qlog (Quaternion real imag0 0 0) = Quaternion (creal logAsComplex) (cimag0 logAsComplex) 0 0
+        where logAsComplex = clog $ Complex real imag0
+    qlog quat = rplusq (log absValue) (qmultr (qnorm $ Quaternion 0 imag0 imag1 imag2) (acos $ real / absValue)) 
         where real = qreal quat
               imag0 = qimag0 quat
               imag1 = qimag1 quat
               imag2 = qimag2 quat
-              realIsZero = 0 == real
-              imag0IsZero = 0 == imag0
-              imag1IsZero = 0 == imag1
-              imag2IsZero = 0 == imag2
-              asComplex = clog $ Complex real imag0
-              a = qabs quat
+              absValue = qabs quat
 
     clogBase :: (RealFloat a) => a -> Complex a -> Complex a
     clogBase base com = cdivr (clog com) (log base)
@@ -432,20 +395,15 @@ module Imaginary (
     cexp = rpowc $ exp 1
 
     qexp :: (RealFloat a) => Quaternion a -> Quaternion a
-    qexp quat
-        | (realIsZero && imag0IsZero && imag1IsZero && imag2IsZero) = q1
-        | (imag0IsZero && imag1IsZero && imag2IsZero) = Quaternion (exp real) 0 0 0
-        | (imag1IsZero && imag2IsZero) = Quaternion (creal asComplex) (cimag0 asComplex) 0 0
-        | otherwise = rmultq (exp real) (rplusq (cos b) (qmultr (qnorm a) (sin b)))
+    qexp (Quaternion 0 0 0 0) = q1
+    qexp (Quaternion real 0 0 0) = Quaternion (exp real) 0 0 0
+    qexp (Quaternion real imag0 0 0) = Quaternion (creal expAsComplex) (cimag0 expAsComplex) 0 0
+        where expAsComplex = cexp $ Complex real imag0
+    qexp quat = rmultq (exp real) (rplusq (cos b) (qmultr (qnorm a) (sin b)))
         where real = qreal quat
               imag0 = qimag0 quat
               imag1 = qimag1 quat
               imag2 = qimag2 quat
-              realIsZero = 0 == real
-              imag0IsZero = 0 == imag0
-              imag1IsZero = 0 == imag1
-              imag2IsZero = 0 == imag2
-              asComplex = cexp $ Complex real imag0
               a = Quaternion 0 imag0 imag1 imag2
               b = qabs a
 
@@ -526,3 +484,4 @@ module Imaginary (
               c = clog a
               d = clog b
               e = cminusc c d
+              
