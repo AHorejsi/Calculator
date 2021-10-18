@@ -718,13 +718,13 @@ module NumberList (
         where nums = qnums quatList
               invs = QuaternionList $ map qinv nums
 
-    rlmedian :: (Num a, Ord a) => RealList a -> a
+    rlmedian :: (Fractional a, Ord a) => RealList a -> a
     rlmedian realList
         | (mod count 2) == 0 = ((sorted !! (halfCount - 1)) + (sorted !! halfCount)) / 2
         | otherwise = sorted !! halfCount
         where nums = rnums realList
               count = rlsize realList
-              halfCount = count / 2
+              halfCount = div count 2
               sorted = sort nums
 
     rlrange :: (Num a, Ord a) => RealList a -> a
