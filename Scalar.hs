@@ -7,6 +7,7 @@ module Scalar (
     ),
     zero,
     one,
+    two,
     negOne,
     smessage,
     divideByZeroError,
@@ -118,6 +119,9 @@ module Scalar (
 
     one :: (RealFloat a) => Scalar a
     one = Real 1
+
+    two :: (RealFloat a) => Scalar a
+    two = Real 2
 
     negOne :: (RealFloat a) => Scalar a
     negOne = Real $ -1
@@ -348,11 +352,11 @@ module Scalar (
             where com = Complex real imag0
         asin _ = _invalid
         acos (Real real) = Real $ acos real
-        acos (Complex real imag0) = (pi / 2) + (imagI * (log $ (imagI * com) + (sqrt $ one - (com * com))))
+        acos (Complex real imag0) = (pi / two) + (imagI * (log $ (imagI * com) + (sqrt $ one - (com * com))))
             where com = Complex real imag0
         acos _ = _invalid
         atan (Real real) = Real $ atan real
-        atan (Complex real imag0) = (imagI / 2) * ((log $ one - (imagI * com)) - (log $ one + (imagI * com)))
+        atan (Complex real imag0) = (imagI / two) * ((log $ one - (imagI * com)) - (log $ one + (imagI * com)))
             where com = Complex real imag0
         atan _ = _invalid
         asinh (Real real) = Real $ asinh real
