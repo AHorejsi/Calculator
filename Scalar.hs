@@ -9,7 +9,7 @@ module Scalar (
     one,
     negOne,
     real,
-    message,
+    smessage,
     divideByZeroError,
     zeroToPowerOfZeroError,
     imag0,
@@ -31,7 +31,7 @@ module Scalar (
         _qimag1 :: a,
         _qimag2 :: a
     } | SFail {
-        _fmsg :: String
+        _smsg :: String
     }
 
     instance (Num a, Show a, Eq a, Ord a) => Show (Scalar a) where
@@ -91,7 +91,16 @@ module Scalar (
     one = Real 1
 
     negOne :: (RealFloat a) => Scalar a
-    negOne = negate one
+    negOne = Real $ -1
+
+    imagI :: (RealFloat a) => Scalar a
+    imagI = Complex 0 1
+
+    imagJ :: (RealFloat a) => Scalar a
+    imagJ = Quaternion 0 0 1 0
+
+    imagK :: (RealFloat a) => Scalar a
+    imagK = Quaternion 0 0 0 1
 
     _invalid :: (Num a) => Scalar a
     _invalid = SFail "Invalid Innput"
@@ -102,33 +111,33 @@ module Scalar (
     zeroToPowerOfZeroError :: (RealFloat a) => Scalar a
     zeroToPowerOfZeroError = SFail "Cannot compute zero to the power of zero"
 
-    message :: Scalar a -> Maybe String
-    message (SFail msg) = Just msg
-    message _ = Nothing
+    smessage :: Scalar a -> Maybe String
+    smessage (SFail msg) = Just msg
+    smessage _ = Nothing
 
-    real :: (RealFloat a) => Scalar a -> Scalar a
-    real (Real real) = Real real
-    real (Complex real _) = Real real
-    real (Quaternion real _ _ _) = Real real
-    real (SFail _) = _invalid
+    real :: (RealFloat a) => Scalar a -> a
+    real (Real real) = real
+    real (Complex real _) = real
+    real (Quaternion real _ _ _) = real
+    real (SFail _) = 0.0 / 0.0
 
-    imag0 :: (RealFloat a) => Scalar a -> Scalar a
-    imag0 (Real _) = zero
-    imag0 (Complex _ imag0) = Real imag0
-    imag0 (Quaternion _ imag0 _ _) = Real imag0
-    imag0 (SFail _) = _invalid
+    imag0 :: (RealFloat a) => Scalar a -> a
+    imag0 (Real _) = 0
+    imag0 (Complex _ imag0) = imag0
+    imag0 (Quaternion _ imag0 _ _) = imag0
+    imag0 (SFail _) = 0.0 / 0.0
 
-    imag1 :: (RealFloat a) => Scalar a -> Scalar a
-    imag1 (Real _) = zero
-    imag1 (Complex _ _) = zero
-    imag1 (Quaternion _ _ imag1 _) = Real imag1
-    imag1 (SFail _) = _invalid
+    imag1 :: (RealFloat a) => Scalar a -> a
+    imag1 (Real _) = 0
+    imag1 (Complex _ _) = 0
+    imag1 (Quaternion _ _ imag1 _) = imag1
+    imag1 (SFail _) = 0.0 / 0.0
 
-    imag2 :: (RealFloat a) => Scalar a -> Scalar a
-    imag2 (Real _) = zero
-    imag2 (Complex _ _) = zero
-    imag2 (Quaternion _ _ _ imag2) = Real imag2
-    imag2 (SFail _) = _invalid
+    imag2 :: (RealFloat a) => Scalar a -> a
+    imag2 (Real _) = 0
+    imag2 (Complex _ _) = 0
+    imag2 (Quaternion _ _ _ imag2) = imag2
+    imag2 (SFail _) = 0.0 / 0.0
 
     instance (RealFloat a) => Num (Scalar a) where
         (+) (Real leftReal) (Real rightReal) = Real $ leftReal + rightReal
@@ -195,7 +204,7 @@ module Scalar (
                   right = Complex rightReal rightImag0
                   rightConj = sconj right
                   numerator = left * rightConj
-                  denominator = real $ right * rightConj
+                  denominator = Real $ _creal $ right * rightConj
         (/) (Real leftReal) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion realResult imag0Result imag1Result imag2Result
             where denominator = rightReal * rightReal + rightImag0 * rightImag0 + rightImag1 * rightImag1 + rightImag2 * rightImag2
                   realResult = leftReal * rightReal / denominator
@@ -208,7 +217,7 @@ module Scalar (
                   right = Complex rightReal rightImag0
                   rightConj = sconj right
                   numerator = left * rightConj
-                  denominator = real right * rightConj
+                  denominator = Real $ _creal $ right * rightConj
         (/) (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion realResult imag0Result imag1Result imag2Result
             where denominator = rightReal * rightReal + rightImag0 * rightImag0 + rightImag1 * rightImag1 + rightImag2 * rightImag2
                   realResult = (leftReal * rightReal + leftImag0 * rightImag0) / denominator
@@ -221,7 +230,7 @@ module Scalar (
                   right = Complex rightReal rightImag0
                   rightConj = sconj right
                   numerator = left * rightConj
-                  denominator = real $ right * rightConj
+                  denominator = Real $ _creal $ right * rightConj
         (/) (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion realResult imag0Result imag1Result imag2Result
             where denominator = rightReal * rightReal + rightImag0 * rightImag0 + rightImag1 * rightImag1 + rightImag2 * rightImag2
                   realResult = (leftReal * rightReal + leftImag0 * rightImag0 + leftImag1 * rightImag1 + leftImag2 * rightImag2) / denominator
@@ -260,6 +269,75 @@ module Scalar (
         (**) (Real leftReal) (Real rightReal) = Real $ leftReal ** rightReal
         (**) (Real leftReal) (Complex rightReal rightImag0) = (Real $ leftReal ** rightReal) * (Complex (cos a) (sin a))
             where a = (log leftReal) * rightImag0
+        (**) (Complex leftReal leftImag0) (Real rightReal) = (r ** right) * Complex (cos a) (sin a)
+            where left = Complex leftReal leftImag0
+                  right = Real rightReal
+                  r = abs left
+                  theta = arg left
+                  a = _rreal $ right * theta
+        (**) (Complex leftReal leftImag0) (Complex rightReal rightImag0) = Complex (d * (cos c)) (d * (sin c))
+            where left = Complex leftReal leftImag0
+                  a = leftReal * leftReal + leftImag0 * leftImag0
+                  b = _rreal $ arg left
+                  c = rightReal * b + 0.5 * rightImag0 * (log a)
+                  d = (a ** (rightReal / 2)) * (exp $ -rightImag0 * b)
+        (**) left right = exp $ (log left) * right
+        exp (Real real) = Real $ exp real
+        exp (Complex real imag0) = (exp 1) ** com
+            where com = Complex real imag0
+        exp (Quaternion real imag0 imag1 imag2) = (exp $ Real real) * ((cos b) + ((snorm a) * (sin b)))
+            where quat = Quaternion real imag0 imag1 imag2
+                  a = Quaternion 0 imag0 imag1 imag2
+                  b = abs quat
+        exp _ = _invalid
+        log (Real real) = Real $ log real
+        log (Complex real imag0) = Complex (log $ _rreal $ abs com) (_rreal $ arg com)
+            where com = Complex real imag0
+        log (Quaternion real 0 0 0) = log $ Real real
+        log (Quaternion real imag0 0 0) = log $ Complex real imag0
+        log (Quaternion real imag0 imag1 imag2) = (log b) + (snorm a) * (acos $ (Real real) / b)
+            where quat = Quaternion real imag0 imag1 imag2
+                  a = Quaternion 0 imag0 imag1 imag2
+                  b = abs quat
+        log _ = _invalid
+        sin (Real real) = Real $ sin real
+        sin (Complex real imag0) = Complex ((sin real) * (cosh imag0)) ((cos real) * (sinh imag0))
+        sin _ = _invalid
+        cos (Real real) = Real $ cos real
+        cos (Complex real imag0) = Complex ((cos real) * (cosh imag0)) (-(sin real) * (sinh imag0))
+        cos _ = _invalid
+        tan value = (sin value) / (cos value)
+        sinh (Real real) = Real $ sinh real
+        sinh (Complex real imag0) = Complex ((sinh real) * (cos imag0)) ((cosh real) * (sin imag0))
+        sinh _ = _invalid
+        cosh (Real real) = Real $ cosh real
+        cosh (Complex real imag0) = Complex ((cosh real) * (cos imag0)) ((sinh real) * (sin imag0))
+        cosh _ = _invalid
+        tanh value = (sinh value) / (cosh value)
+        asin (Real real) = Real $ asin real
+        asin (Complex real imag0) = -imagI * (log $ (imagI * com) + (sqrt $ one - (com * com)))
+            where com = Complex real imag0
+        asin _ = _invalid
+        acos (Real real) = Real $ acos real
+        acos (Complex real imag0) = (pi / 2) + (imagI * (log $ (imagI * com) + (sqrt $ one - (com * com))))
+            where com = Complex real imag0
+        acos _ = _invalid
+        atan (Real real) = Real $ atan real
+        atan (Complex real imag0) = (imagI / 2) * ((log $ one - (imagI * com)) - (log $ one + (imagI * com)))
+            where com = Complex real imag0
+        atan _ = _invalid
+        asinh (Real real) = Real $ asinh real
+        asinh (Complex real imag0) = (asin $ imagI * com) / imagI
+            where com = Complex real imag0
+        asinh _ = _invalid
+        acosh (Real real) = Real $ acosh real
+        acosh (Complex real imag0) = imagI * (acos com)
+            where com = Complex real imag0
+        acosh _ = _invalid
+        atanh (Real real) = Real $ atanh real
+        atanh (Complex real imag0) = (atan $ imagI * com) / imagI
+            where com = Complex real imag0
+        atanh _ = _invalid
 
     sconj :: (Num a) => Scalar a -> Scalar a
     sconj (Real real) = Real real
@@ -269,9 +347,9 @@ module Scalar (
 
     snorm :: (RealFloat a, Eq a) => Scalar a -> Scalar a
     snorm value = value / (abs value)
-    
 
     arg :: (RealFloat a) => Scalar a -> Scalar a
+    arg (Real _) = zero
     arg (Complex _ 0) = zero
     arg (Complex 0 imag0) = if imag0 < 0 then Real $ (-pi) / 2 else if imag0 > 0 then Real $ pi / 2 else zero
     arg (Complex real imag0) = Real $ atan2 imag0 real
