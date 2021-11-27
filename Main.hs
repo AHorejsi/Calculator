@@ -7,4 +7,4 @@ com :: (RealFloat a) => Scalar a
 com = complexValue 1.2 3.4
 
 main :: IO ()
-main = putStrLn $ show $ ssin com
+main = putStrLn $ show $ sacos imagI

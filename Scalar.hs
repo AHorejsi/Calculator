@@ -344,36 +344,45 @@ module Scalar (
         where sinhValue = ssinh value
               coshValue = scosh value
 
-    -- Add converting real number outside normal range into complex numbers from inverse trig functions
     sasin :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sasin (Real real)
-        | ((-1) <= real && real <= 1) = withValue $ Real $ asin real
+        | (-1) <= real && real <= 1 = withValue $ Real $ asin real
         | otherwise = sasin $ Complex real 0
     sasin com@Complex{} = withValue $ smult (sneg imagI) (mathValue $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))
     sasin _ = withError InvalidType
 
     sacos :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sacos (Real real) = withValue $ Real $ acos real
+    sacos (Real real)
+        | (-1) <= real && real <= 1 = withValue $ Real $ acos real
+        | otherwise = sacos $ Complex real 0
     sacos com@(Complex real imag0) = withValue $ splus (mathValue $ sdiv spi two) (smult imagI ((mathValue $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))))
     sacos _ = withError InvalidType
 
     satan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    satan (Real real) = withValue $ Real $ atan real
+    satan (Real real)
+        | (-1) <= real && real <= 1 = withValue $ Real $ atan real
+        | otherwise = satan $ Complex real 0
     satan com@Complex{} = withValue $ smult (mathValue $ sdiv imagI two) (sminus (mathValue $ slog $ sminus one (smult imagI com)) (mathValue $ slog $ splus one (smult imagI com)))
     satan _ = withError InvalidType
 
     sasinh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sasinh (Real real) = withValue $ Real $ asinh real
+    sasinh (Real real)
+        | (-1) <= real && real <= 1 = withValue $ Real $ asinh real
+        | otherwise = sasinh $ Complex real 0
     sasinh com@Complex{} = sdiv (mathValue $ sasin $ smult imagI com) imagI
     asainh _ = withError InvalidType
 
     sacosh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sacosh (Real real) = withValue $ Real $ acosh real
+    sacosh (Real real)
+        | (-1) <= real && real <= 1 = withValue $ Real $ acosh real
+        | otherwise = sacosh $ Complex real 0
     sacosh com@Complex{} = withValue $ smult imagI (mathValue $ sacos com)
     sacosh _ = withError InvalidType
 
     satanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    satanh (Real real) = withValue $ Real $ atanh real
+    satanh (Real real)
+        | (-1) <= real && real <= 1 = withValue $ Real $ atanh real
+        | otherwise = satanh $ Complex real 0
     satanh com@Complex{} = sdiv (mathValue $ satan $ smult imagI com) imagI
     satanh _ = withError InvalidType
 
