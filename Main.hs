@@ -1,10 +1,9 @@
 import MathInfo
 import Scalar
 import Vector
-import Data.HashSet (HashSet, fromList)
 
-com :: (RealFloat a) => Scalar a
-com = complexValue 1.2 3.4
+val :: (RealFloat a) => Scalar a
+val = realValue 2
 
 main :: IO ()
-main = putStrLn $ show $ sacos imagI
+main = putStrLn $ show $ satan val

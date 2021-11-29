@@ -5,11 +5,14 @@ module MathInfo (
         DivideByZero,
         ZeroToPowerOfZero,
         LogarithmOfZero,
+        InvalidIndex,
+        InvalidLength,
         InvalidType
     ),
     MathResult,
     withValue,
     withError,
+    withErrorSet,
     isSuccess,
     isFailure,
     mathValue,
@@ -27,6 +30,8 @@ module MathInfo (
         DivideByZero |
         ZeroToPowerOfZero |
         LogarithmOfZero |
+        InvalidIndex |
+        InvalidLength |
         InvalidType 
         deriving (Eq, Show, Enum, Generic)
 
@@ -43,6 +48,9 @@ module MathInfo (
 
     withError :: MathError -> MathResult a
     withError errorValue = Failure $ insert errorValue empty
+
+    withErrorSet :: HashSet MathError -> MathResult a
+    withErrorSet errorSet = Failure errorSet
 
     isSuccess :: MathResult a -> Bool
     isSuccess Success{} = True
