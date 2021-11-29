@@ -289,7 +289,11 @@ module Scalar (
     scos _ = withError InvalidType
 
     stan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    stan value = _inspectBinaryOperation sinValue cosValue sdiv
+    stan value
+        | (isSuccess sinValue) && (isSuccess cosValue) = sdiv (mathValue sinValue) (mathValue cosValue)
+        | (isFailure sinValue) && (isFailure cosValue) = if sinValue == cosValue then sinValue else combineErrors (mathError sinValue) (mathError cosValue)
+        | (isFailure sinValue) = sinValue
+        | (isFailure cosValue) = cosValue
         where sinValue = ssin value
               cosValue = scos value
 
@@ -304,7 +308,11 @@ module Scalar (
     scosh _ = withError InvalidType
 
     stanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    stanh value = _inspectBinaryOperation sinhValue coshValue sdiv
+    stanh value
+        | (isSuccess sinhValue) && (isSuccess coshValue) = sdiv (mathValue sinhValue) (mathValue coshValue)
+        | (isFailure sinhValue) && (isFailure coshValue) = if sinhValue == coshValue then sinhValue else combineErrors (mathError sinhValue) (mathError coshValue)
+        | (isFailure sinhValue) = sinhValue
+        | (isFailure coshValue) = coshValue
         where sinhValue = ssinh value
               coshValue = scosh value
 
@@ -349,10 +357,3 @@ module Scalar (
         | otherwise = satanh $ Complex real 0
     satanh com@Complex{} = sdiv (mathValue $ satan $ smult imagI com) imagI
     satanh _ = withError InvalidType
-
-    _inspectBinaryOperation :: (RealFloat a) => MathResult (Scalar a) -> MathResult (Scalar a) -> (Scalar a -> Scalar a -> MathResult (Scalar a)) -> MathResult (Scalar a)
-    _inspectBinaryOperation left right func
-        | (isSuccess left) && (isSuccess right) = func (mathValue left) (mathValue right)
-        | (isFailure left) && (isFailure right) = if left == right then left else combineErrors (mathError left) (mathError right)
-        | (isFailure left) = left
-        | (isFailure right) = right
