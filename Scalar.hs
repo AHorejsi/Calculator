@@ -52,7 +52,7 @@ module Scalar (
     (/=),
     show
 ) where
-    import MathInfo
+    import MathInfo (MathResult, MathError(DivideByZero, ZeroToPowerOfZero, LogarithmOfZero, LogarithmBaseOfZero, InvalidType), value, errorSet, withValue, withError, withErrorSet, combine)
     import Data.HashSet (fromList)
 
     data Scalar a = Real {
