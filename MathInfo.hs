@@ -5,6 +5,7 @@ module MathInfo (
         DivideByZero,
         ZeroToPowerOfZero,
         LogarithmOfZero,
+        LogarithmBaseOfZero,
         InvalidIndex,
         InvalidLength,
         InvalidType
@@ -15,9 +16,9 @@ module MathInfo (
     withErrorSet,
     isSuccess,
     isFailure,
-    mathValue,
-    mathError,
-    combineErrors,
+    value,
+    errorSet,
+    combine,
     (==),
     (/=),
     show
@@ -26,19 +27,20 @@ module MathInfo (
     import Data.Hashable (Hashable, hash)
     import Data.HashSet (HashSet, unions, empty, insert)
 
-    data MathError = 
+    data MathError =
         DivideByZero |
         ZeroToPowerOfZero |
         LogarithmOfZero |
+        LogarithmBaseOfZero |
         InvalidIndex |
         InvalidLength |
-        InvalidType 
+        InvalidType
         deriving (Eq, Show, Enum, Generic)
 
     data MathResult a = Success {
-        mathValue :: a
+        _val :: a
     } | Failure {
-        mathError :: HashSet MathError
+        _errors :: HashSet MathError
     } deriving (Eq, Show)
 
     instance Hashable MathError
@@ -47,18 +49,34 @@ module MathInfo (
     withValue value = Success value
 
     withError :: MathError -> MathResult a
-    withError errorValue = Failure $ insert errorValue empty
+    withError errorValue = withErrorSet $ insert errorValue empty
 
     withErrorSet :: HashSet MathError -> MathResult a
     withErrorSet errorSet = Failure errorSet
+
+    value :: MathResult a -> a
+    value (Success val) = val
+    value Failure{} = error "Invalid result"
+
+    errorSet :: MathResult a -> HashSet MathError
+    errorSet result
+        | isSuccess result = empty
+        | otherwise = _errors result
 
     isSuccess :: MathResult a -> Bool
     isSuccess Success{} = True
     isSuccess Failure{} = False
 
     isFailure :: MathResult a -> Bool
-    isFailure Success{} = False
-    isFailure Failure{} = True
+    isFailure result = not $ isSuccess result
 
-    combineErrors :: HashSet MathError -> HashSet MathError -> MathResult a
-    combineErrors first second = Failure $ unions [first, second]
+    combine :: MathResult a -> MathResult b -> (a -> b -> MathResult c) -> MathResult c
+    combine left right func
+        | (isSuccess left) && (isSuccess right) = func leftValue rightValue
+        | (isFailure left) && (isFailure right) = Failure $ unions [leftErrorSet, rightErrorSet]
+        | isFailure left = withErrorSet leftErrorSet
+        | isFailure right = withErrorSet rightErrorSet
+        where leftValue = value left
+              rightValue = value right
+              leftErrorSet = errorSet left
+              rightErrorSet = errorSet right

@@ -9,6 +9,7 @@ module Scalar (
     zero,
     one,
     two,
+    ten,
     negOne,
     spi,
     imagI,
@@ -32,6 +33,9 @@ module Scalar (
     sarg,
     sexp,
     slog,
+    slog2,
+    slog10,
+    slogBase,
     ssin,
     scos,
     stan,
@@ -49,6 +53,7 @@ module Scalar (
     show
 ) where
     import MathInfo
+    import Data.HashSet (fromList)
 
     data Scalar a = Real {
         _rreal :: a
@@ -101,6 +106,9 @@ module Scalar (
     two :: (RealFloat a) => Scalar a
     two = Real 2
 
+    ten :: (RealFloat a) => Scalar a
+    ten = Real 10
+
     negOne :: (RealFloat a) => Scalar a
     negOne = Real $ -1
 
@@ -117,7 +125,7 @@ module Scalar (
     imagK = Quaternion 0 0 0 1
 
     realCoef :: (RealFloat a) => Scalar a -> Scalar a
-    realCoef value@(Real real) = value
+    realCoef val@(Real real) = val
     realCoef (Complex real _) = Real real
     realCoef (Quaternion real _ _ _) = Real real
 
@@ -223,28 +231,28 @@ module Scalar (
     spow (Real leftReal) (Real rightReal) = withValue $ Real $ leftReal ** rightReal
     spow (Real leftReal) (Complex rightReal rightImag0) = withValue $ smult (Real $ leftReal ** rightReal) (Complex (cos a) (sin a))
         where a = (log leftReal) * rightImag0
-    spow left@(Complex leftReal leftImag0) right@(Real rightReal) = withValue $ smult (mathValue $ spow r right) (Complex (cos a) (sin a))
-        where r = sabs left
-              theta = mathValue $ sarg left
-              a = _rreal $ smult right theta
+    spow left@(Complex leftReal leftImag0) right@(Real rightReal) = withValue $ smult (value $ spow a right) (Complex (cos c) (sin c))
+        where a = sabs left
+              b = value $ sarg left
+              c = _rreal $ smult right b
     spow left@(Complex leftReal leftImag0) (Complex rightReal rightImag0) = withValue $ complex (d * (cos c)) (d * (sin c))
         where a = leftReal * leftReal + leftImag0 * leftImag0
-              b = _rreal $ mathValue $ sarg left
+              b = _rreal $ value $ sarg left
               c = rightReal * b + 0.5 * rightImag0 * (log a)
               d = (a ** (rightReal / 2)) * (exp $ -rightImag0 * b)
-    spow left right = withValue $ sexp $ smult (mathValue $ slog left) right
+    spow left right = withValue $ sexp $ smult (value $ slog left) right
 
     ssqrt :: (RealFloat a) => Scalar a -> Scalar a
     ssqrt (Real real)
         | real < 0 = smult imagI (Real $ sqrt $ -real)
         | otherwise = Real $ sqrt real
-    ssqrt value = mathValue $ spow value (mathValue $ sdiv one two)
+    ssqrt val = value $ spow val (value $ sdiv one two)
 
     sinv:: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sinv quat@(Quaternion real imag0 imag1 imag2) = sdiv conj denominator
         where conj = sconj quat
               denominator = Real $ real * real + imag0 * imag0 + imag1 * imag1 + imag2 * imag2
-    sinv value = sdiv one value
+    sinv val = sdiv one val
 
     sconj :: (Num a) => Scalar a -> Scalar a
     sconj (Real real) = Real real
@@ -257,14 +265,14 @@ module Scalar (
     sarg :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sarg (Real _) = withValue $ zero
     sarg (Complex _ 0) = withValue $ zero
-    sarg (Complex 0 imag0) = withValue $ if imag0 < 0 then mathValue $ sdiv (sneg spi) two else if imag0 > 0 then mathValue $ sdiv spi two else zero
+    sarg (Complex 0 imag0) = withValue $ if imag0 < 0 then value $ sdiv (sneg spi) two else if imag0 > 0 then value $ sdiv spi two else zero
     sarg (Complex real imag0) = withValue $ Real $ atan2 imag0 real
     sarg _ = withError InvalidType
 
     sexp :: (RealFloat a) => Scalar a -> Scalar a
     sexp (Real real) = Real $ exp real
-    sexp com@Complex{} = mathValue $ spow (Real $ exp 1) com
-    sexp quat@(Quaternion real imag0 imag1 imag2) = smult (sexp $ Real real) (splus (mathValue $ scos b) (smult (mathValue $ snorm a) (mathValue $ ssin b)))
+    sexp com@Complex{} = value $ spow (Real $ exp 1) com
+    sexp quat@(Quaternion real imag0 imag1 imag2) = smult (sexp $ Real real) (splus (value $ scos b) (smult (value $ snorm a) (value $ ssin b)))
         where a = Quaternion 0 imag0 imag1 imag2
               b = sabs quat
 
@@ -273,10 +281,21 @@ module Scalar (
     slog (Real real)
         | (real < 0) = withValue $ Complex (log $ abs real) pi
         | otherwise = withValue $ Real $ log real
-    slog com@Complex{} = withValue $ Complex (log $ _rreal $ sabs com) (_rreal $ mathValue $ sarg com)
-    slog quat@(Quaternion real imag0 imag1 imag2) = withValue $ splus (mathValue $ slog b) (smult (mathValue $ snorm a) (mathValue $ sacos $ mathValue $ sdiv (Real real) b))
+    slog com@Complex{} = withValue $ Complex (log $ _rreal $ sabs com) (_rreal $ value $ sarg com)
+    slog quat@(Quaternion real imag0 imag1 imag2) = withValue $ splus (value $ slog b) (smult (value $ snorm a) (value $ sacos $ value $ sdiv (Real real) b))
         where a = Quaternion 0 imag0 imag1 imag2
               b = sabs quat
+
+    slog2 :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
+    slog2 value = slogBase two value
+
+    slog10 :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
+    slog10 value = slogBase ten value
+
+    slogBase :: (RealFloat a) => Scalar a -> Scalar a -> MathResult (Scalar a)
+    slogBase (Real 0) (Real 0) = withErrorSet $ fromList [LogarithmOfZero, LogarithmBaseOfZero]
+    slogBase (Real 0) _ = withError LogarithmBaseOfZero
+    slogBase base value = combine (slog value) (slog base) sdiv
 
     ssin :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     ssin (Real real) = withValue $ Real $ sin real
@@ -289,11 +308,7 @@ module Scalar (
     scos _ = withError InvalidType
 
     stan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    stan value
-        | (isSuccess sinValue) && (isSuccess cosValue) = sdiv (mathValue sinValue) (mathValue cosValue)
-        | (isFailure sinValue) && (isFailure cosValue) = if sinValue == cosValue then sinValue else combineErrors (mathError sinValue) (mathError cosValue)
-        | (isFailure sinValue) = sinValue
-        | (isFailure cosValue) = cosValue
+    stan value = combine sinValue cosValue sdiv
         where sinValue = ssin value
               cosValue = scos value
 
@@ -308,11 +323,7 @@ module Scalar (
     scosh _ = withError InvalidType
 
     stanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    stanh value
-        | (isSuccess sinhValue) && (isSuccess coshValue) = sdiv (mathValue sinhValue) (mathValue coshValue)
-        | (isFailure sinhValue) && (isFailure coshValue) = if sinhValue == coshValue then sinhValue else combineErrors (mathError sinhValue) (mathError coshValue)
-        | (isFailure sinhValue) = sinhValue
-        | (isFailure coshValue) = coshValue
+    stanh value = combine sinhValue coshValue sdiv
         where sinhValue = ssinh value
               coshValue = scosh value
 
@@ -320,40 +331,40 @@ module Scalar (
     sasin (Real real)
         | (-1) <= real && real <= 1 = withValue $ Real $ asin real
         | otherwise = sasin $ Complex real 0
-    sasin com@Complex{} = withValue $ smult (sneg imagI) (mathValue $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))
+    sasin com@Complex{} = withValue $ smult (sneg imagI) (value $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))
     sasin _ = withError InvalidType
 
     sacos :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sacos (Real real)
         | (-1) <= real && real <= 1 = withValue $ Real $ acos real
         | otherwise = sacos $ Complex real 0
-    sacos com@(Complex real imag0) = withValue $ splus (mathValue $ sdiv spi two) (smult imagI ((mathValue $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))))
+    sacos com@(Complex real imag0) = withValue $ splus (value $ sdiv spi two) (smult imagI ((value $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))))
     sacos _ = withError InvalidType
 
     satan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     satan (Real real)
         | (-1) <= real && real <= 1 = withValue $ Real $ atan real
         | otherwise = satan $ Complex real 0
-    satan com@Complex{} = withValue $ smult (mathValue $ sdiv imagI two) (sminus (mathValue $ slog $ sminus one (smult imagI com)) (mathValue $ slog $ splus one (smult imagI com)))
+    satan com@Complex{} = withValue $ smult (value $ sdiv imagI two) (sminus (value $ slog $ sminus one (smult imagI com)) (value $ slog $ splus one (smult imagI com)))
     satan _ = withError InvalidType
 
     sasinh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sasinh (Real real)
         | (-1) <= real && real <= 1 = withValue $ Real $ asinh real
         | otherwise = sasinh $ Complex real 0
-    sasinh com@Complex{} = sdiv (mathValue $ sasin $ smult imagI com) imagI
+    sasinh com@Complex{} = sdiv (value $ sasin $ smult imagI com) imagI
     asainh _ = withError InvalidType
 
     sacosh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sacosh (Real real)
         | (-1) <= real && real <= 1 = withValue $ Real $ acosh real
         | otherwise = sacosh $ Complex real 0
-    sacosh com@Complex{} = withValue $ smult imagI (mathValue $ sacos com)
+    sacosh com@Complex{} = withValue $ smult imagI (value $ sacos com)
     sacosh _ = withError InvalidType
 
     satanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     satanh (Real real)
         | (-1) <= real && real <= 1 = withValue $ Real $ atanh real
         | otherwise = satanh $ Complex real 0
-    satanh com@Complex{} = sdiv (mathValue $ satan $ smult imagI com) imagI
+    satanh com@Complex{} = sdiv (value $ satan $ smult imagI com) imagI
     satanh _ = withError InvalidType
