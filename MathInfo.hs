@@ -65,8 +65,9 @@ module MathInfo (
         | otherwise = error "Result is valid"
 
     value :: MathResult a -> a
-    value (Success val) = val
-    value Failure{} = error "Invalid result"
+    value result
+        | isSuccess result = _val result
+        | otherwise = error "Result is invalid"
 
     errorSet :: MathResult a -> HashSet MathError
     errorSet result
