@@ -52,8 +52,8 @@ module Scalar (
     (/=),
     show
 ) where
-    import MathInfo (MathResult, MathError(DivideByZero, ZeroToPowerOfZero, LogarithmOfZero, LogarithmBaseOfZero, InvalidType), value, errorSet, withValue, withError, withErrorSet, combine)
-    import Data.HashSet (fromList)
+    import MathInfo
+    import Data.HashSet
 
     data Scalar a = Real {
         _rreal :: a
@@ -65,13 +65,7 @@ module Scalar (
         _qimag0 :: a,
         _qimag1 :: a,
         _qimag2 :: a
-    } deriving (Show)
-
-    instance (RealFloat a) => Eq (Scalar a) where
-        (==) (Real leftReal) (Real rightReal) = leftReal == rightReal
-        (==) (Complex leftReal leftImag0) (Complex rightReal rightImag0) = leftReal == rightReal && leftImag0 == rightImag0
-        (==) (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = leftReal == rightReal && leftImag0 == rightImag0 && leftImag1 == rightImag1 && leftImag2 == rightImag2
-        (/=) left right = not $ left == right
+    } deriving (Eq, Show)
 
     real :: (RealFloat a) => a -> Scalar a
     real real = Real real
@@ -145,27 +139,27 @@ module Scalar (
     imag2Coef (Quaternion _ _ _ imag2) = Real imag2
 
     splus :: (RealFloat a) => Scalar a -> Scalar a -> Scalar a
-    splus (Real leftReal) (Real rightReal) = Real $ leftReal + rightReal
-    splus (Real leftReal) (Complex rightReal rightImag0) = Complex (leftReal + rightReal) rightImag0
-    splus (Real leftReal) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal + rightReal) rightImag0 rightImag1 rightImag2
-    splus (Complex leftReal leftImag0) (Complex rightReal rightImag0) = Complex (leftReal + rightReal) (leftImag0 + rightImag0)
-    splus (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal + rightReal) (leftImag0 + rightImag0) rightImag1 rightImag2
-    splus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal + rightReal) (leftImag0 + rightImag0) (leftImag1 + rightImag1) (leftImag2 + rightImag2)
+    splus (Real leftReal) (Real rightReal) = real $ leftReal + rightReal
+    splus (Real leftReal) (Complex rightReal rightImag0) = complex (leftReal + rightReal) rightImag0
+    splus (Real leftReal) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal + rightReal) rightImag0 rightImag1 rightImag2
+    splus (Complex leftReal leftImag0) (Complex rightReal rightImag0) = complex (leftReal + rightReal) (leftImag0 + rightImag0)
+    splus (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal + rightReal) (leftImag0 + rightImag0) rightImag1 rightImag2
+    splus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal + rightReal) (leftImag0 + rightImag0) (leftImag1 + rightImag1) (leftImag2 + rightImag2)
     splus left right = splus right left
 
     sminus :: (RealFloat a) => Scalar a -> Scalar a -> Scalar a
-    sminus (Real leftReal) (Real rightReal) = Real $ leftReal - rightReal
-    sminus (Real leftReal) (Complex rightReal rightImag0) = Complex (leftReal - rightReal) (-rightImag0)
-    sminus (Real leftReal) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal - rightReal) (-rightImag0) (-rightImag1) (-rightImag2)
-    sminus (Complex leftReal leftImag0) (Real rightReal) = Complex (leftReal - rightReal) leftImag0
-    sminus (Complex leftReal leftImag0) (Complex rightReal rightImag0) = Complex (leftReal - rightReal) (leftImag0 - rightImag0)
-    sminus (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal - rightReal) (leftImag0 - rightImag0) (-rightImag1) (-rightImag2)
-    sminus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Real rightReal) = Quaternion (leftReal - rightReal) leftImag0 leftImag1 leftImag2
-    sminus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Complex rightReal rightImag0) = Quaternion (leftReal - rightReal) (leftImag0 - rightImag0) leftImag1 leftImag2
-    sminus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = Quaternion (leftReal - rightReal) (leftImag0 - rightImag0) (leftImag1 - rightImag1) (leftImag2 - rightImag2)
+    sminus (Real leftReal) (Real rightReal) = real $ leftReal - rightReal
+    sminus (Real leftReal) (Complex rightReal rightImag0) = complex (leftReal - rightReal) (-rightImag0)
+    sminus (Real leftReal) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal - rightReal) (-rightImag0) (-rightImag1) (-rightImag2)
+    sminus (Complex leftReal leftImag0) (Real rightReal) = complex (leftReal - rightReal) leftImag0
+    sminus (Complex leftReal leftImag0) (Complex rightReal rightImag0) = complex (leftReal - rightReal) (leftImag0 - rightImag0)
+    sminus (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal - rightReal) (leftImag0 - rightImag0) (-rightImag1) (-rightImag2)
+    sminus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Real rightReal) = quaternion (leftReal - rightReal) leftImag0 leftImag1 leftImag2
+    sminus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Complex rightReal rightImag0) = quaternion (leftReal - rightReal) (leftImag0 - rightImag0) leftImag1 leftImag2
+    sminus (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal - rightReal) (leftImag0 - rightImag0) (leftImag1 - rightImag1) (leftImag2 - rightImag2)
 
     smult :: (RealFloat a) => Scalar a -> Scalar a -> Scalar a
-    smult (Real leftReal) (Real rightReal) = Real $ leftReal * rightReal
+    smult (Real leftReal) (Real rightReal) = real $ leftReal * rightReal
     smult (Real leftReal) (Complex rightReal rightImag0) = complex (leftReal * rightReal) (leftReal * rightImag0)
     smult (Real leftReal) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = quaternion (leftReal * rightReal) (leftReal * rightImag0) (leftReal * rightImag1) (leftReal * rightImag2)
     smult (Complex leftReal leftImag0) (Complex rightReal rightImag0) = complex realResult imag0Result
@@ -192,13 +186,14 @@ module Scalar (
     sneg = smult negOne
 
     sabs :: (RealFloat a) => Scalar a -> Scalar a
-    sabs (Real real) = Real $ abs real
-    sabs (Complex real imag0) = Real $ sqrt $ real * real + imag0 * imag0
-    sabs (Quaternion real imag0 imag1 imag2) = Real $ sqrt $ real * real + imag0 * imag0 * imag1 * imag1 + imag2 * imag2
+    sabs (Real realVal) = real $ abs realVal
+    sabs (Complex realVal imag0Val) = real $ sqrt $ realVal * realVal + imag0Val * imag0Val
+    sabs (Quaternion realVal imag0Val imag1Val imag2Val) = real $ sqrt $ realVal * realVal + imag0Val * imag0Val * imag1Val * imag1Val + imag2Val * imag2Val
 
     sdiv :: (RealFloat a) => Scalar a -> Scalar a -> MathResult (Scalar a)
     sdiv _ (Real 0) = withError DivideByZero
-    sdiv (Real leftReal) (Real rightReal) = withValue $ Real $ leftReal / rightReal
+    sdiv (Real leftReal) (Real rightReal) = withValue $ real $ leftReal / rightReal
+    sdiv left right@Real{} = withValue $ smult left (value $ sinv right)
     sdiv left right@(Complex rightReal rightImag0) = sdiv numerator denominator
         where rightConj =  sconj right
               numerator = smult left rightConj
@@ -209,14 +204,12 @@ module Scalar (
               imag0Result = -leftReal * rightImag0 / denominator
               imag1Result = -leftReal * rightImag1 / denominator
               imag2Result = -leftReal * rightImag2 / denominator
-    sdiv (Complex leftReal leftImag0) (Real rightReal) = withValue $ Complex (leftReal / rightReal) (leftImag0 / rightReal)
     sdiv (Complex leftReal leftImag0) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = withValue $ quaternion realResult imag0Result imag1Result imag2Result
         where denominator = rightReal * rightReal + rightImag0 * rightImag0 + rightImag1 * rightImag1 + rightImag2 * rightImag2
               realResult = (leftReal * rightReal + leftImag0 * rightImag0) / denominator
               imag0Result = (leftImag0 * rightReal - leftReal * rightImag0) / denominator
               imag1Result = (-leftReal * rightImag1 - leftImag0 * rightImag2) / denominator
               imag2Result = (leftImag0 * rightImag1 - leftReal * rightImag2) / denominator
-    sdiv (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Real rightReal) = withValue $ quaternion (leftReal / rightReal) (leftImag0 / rightReal) (leftImag1 / rightReal) (leftImag2 / rightReal)
     sdiv (Quaternion leftReal leftImag0 leftImag1 leftImag2) (Quaternion rightReal rightImag0 rightImag1 rightImag2) = withValue $ quaternion realResult imag0Result imag1Result imag2Result
         where denominator = rightReal * rightReal + rightImag0 * rightImag0 + rightImag1 * rightImag1 + rightImag2 * rightImag2
               realResult = (leftReal * rightReal + leftImag0 * rightImag0 + leftImag1 * rightImag1 + leftImag2 * rightImag2) / denominator
@@ -263,27 +256,26 @@ module Scalar (
     snorm value = sdiv value (sabs value)
 
     sarg :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sarg (Real _) = withValue $ zero
-    sarg (Complex _ 0) = withValue $ zero
+    sarg Real{} = withValue $ zero
     sarg (Complex 0 imag0) = withValue $ if imag0 < 0 then value $ sdiv (sneg spi) two else if imag0 > 0 then value $ sdiv spi two else zero
     sarg (Complex real imag0) = withValue $ Real $ atan2 imag0 real
     sarg _ = withError InvalidType
 
     sexp :: (RealFloat a) => Scalar a -> Scalar a
     sexp (Real real) = Real $ exp real
-    sexp com@Complex{} = value $ spow (Real $ exp 1) com
+    sexp com@Complex{} = value $ spow (real $ exp 1) com
     sexp quat@(Quaternion real imag0 imag1 imag2) = smult (sexp $ Real real) (splus (value $ scos b) (smult (value $ snorm a) (value $ ssin b)))
         where a = Quaternion 0 imag0 imag1 imag2
               b = sabs quat
 
     slog :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     slog (Real 0) = withError LogarithmOfZero
-    slog (Real real)
-        | (real < 0) = withValue $ Complex (log $ abs real) pi
-        | otherwise = withValue $ Real $ log real
-    slog com@Complex{} = withValue $ Complex (log $ _rreal $ sabs com) (_rreal $ value $ sarg com)
-    slog quat@(Quaternion real imag0 imag1 imag2) = withValue $ splus (value $ slog b) (smult (value $ snorm a) (value $ sacos $ value $ sdiv (Real real) b))
-        where a = Quaternion 0 imag0 imag1 imag2
+    slog (Real realVal)
+        | (realVal < 0) = withValue $ complex (log $ abs realVal) pi
+        | otherwise = withValue $ real $ log realVal
+    slog com@Complex{} = withValue $ complex (log $ _rreal $ sabs com) (_rreal $ value $ sarg com)
+    slog quat@(Quaternion realVal imag0Val imag1Val imag2Val) = withValue $ splus (value $ slog b) (smult (value $ snorm a) (value $ sacos $ value $ sdiv (real realVal) b))
+        where a = Quaternion 0 imag0Val imag1Val imag2Val
               b = sabs quat
 
     slog2 :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
@@ -298,13 +290,13 @@ module Scalar (
     slogBase base value = combine (slog value) (slog base) sdiv
 
     ssin :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    ssin (Real real) = withValue $ Real $ sin real
-    ssin (Complex real imag0) = withValue $ Complex ((sin real) * (cosh imag0)) ((cos real) * (sinh imag0))
+    ssin (Real realVal) = withValue $ real $ sin realVal
+    ssin (Complex realVal imag0Val) = withValue $ complex ((sin realVal) * (cosh imag0Val)) ((cos realVal) * (sinh imag0Val))
     ssin _ = withError InvalidType
 
     scos :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    scos (Real real) = withValue $ Real $ cos real
-    scos (Complex real imag0) = withValue $ Complex ((cos real) * (cosh imag0)) (-(sin real) * (sinh imag0))
+    scos (Real realVal) = withValue $ real $ cos realVal
+    scos (Complex realVal imag0Val) = withValue $ Complex ((cos realVal) * (cosh imag0Val)) (-(sin realVal) * (sinh imag0Val))
     scos _ = withError InvalidType
 
     stan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
@@ -313,13 +305,13 @@ module Scalar (
               cosValue = scos value
 
     ssinh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    ssinh (Real real) = withValue $ Real $ sinh real
-    ssinh (Complex real imag0) = withValue $ Complex ((sinh real) * (cos imag0)) ((cosh real) * (sin imag0))
+    ssinh (Real realVal) = withValue $ real $ sinh realVal
+    ssinh (Complex realVal imag0Val) = withValue $ Complex ((sinh realVal) * (cos imag0Val)) ((cosh realVal) * (sin imag0Val))
     ssinh _ = withError InvalidType
 
     scosh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    scosh (Real real) = withValue $ Real $ cosh real
-    scosh (Complex real imag0) = withValue $ Complex ((cosh real) * (cos imag0)) ((sinh real) * (sin imag0))
+    scosh (Real realVal) = withValue $ real $ cosh realVal
+    scosh (Complex realVal imag0Val) = withValue $ Complex ((cosh realVal) * (cos imag0Val)) ((sinh realVal) * (sin imag0Val))
     scosh _ = withError InvalidType
 
     stanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
@@ -328,43 +320,46 @@ module Scalar (
               coshValue = scosh value
 
     sasin :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sasin (Real real)
-        | (-1) <= real && real <= 1 = withValue $ Real $ asin real
-        | otherwise = sasin $ Complex real 0
+    sasin (Real realVal)
+        | (-1) <= realVal && realVal <= 1 = withValue $ real $ asin realVal
+        | otherwise = sasin $ Complex realVal 0
     sasin com@Complex{} = withValue $ smult (sneg imagI) (value $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))
     sasin _ = withError InvalidType
 
     sacos :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sacos (Real real)
-        | (-1) <= real && real <= 1 = withValue $ Real $ acos real
-        | otherwise = sacos $ Complex real 0
-    sacos com@(Complex real imag0) = withValue $ splus (value $ sdiv spi two) (smult imagI ((value $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))))
+    sacos (Real realVal)
+        | (-1) <= realVal && realVal <= 1 = withValue $ real $ acos realVal
+        | otherwise = sacos $ Complex realVal 0
+    sacos com@Complex{} = withValue $ sconj $ splus (value $ sdiv spi two) (smult imagI ((value $ slog $ splus (smult imagI com) (ssqrt $ sminus one (smult com com)))))
     sacos _ = withError InvalidType
 
     satan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    satan (Real real)
-        | (-1) <= real && real <= 1 = withValue $ Real $ atan real
-        | otherwise = satan $ Complex real 0
+    satan (Real realVal)
+        | (-1) <= realVal && realVal <= 1 = withValue $ real $ atan realVal
+        | otherwise = satan $ Complex realVal 0
     satan com@Complex{} = withValue $ smult (value $ sdiv imagI two) (sminus (value $ slog $ sminus one (smult imagI com)) (value $ slog $ splus one (smult imagI com)))
     satan _ = withError InvalidType
 
     sasinh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sasinh (Real real)
-        | (-1) <= real && real <= 1 = withValue $ Real $ asinh real
-        | otherwise = sasinh $ Complex real 0
-    sasinh com@Complex{} = sdiv (value $ sasin $ smult imagI com) imagI
+    sasinh (Real realVal)
+        | (-1) <= realVal && realVal <= 1 = withValue $ real $ asinh realVal
+        | otherwise = sasinh $ Complex realVal 0
+    sasinh com@Complex{} = resolveLeft asinValue imagI sdiv
+        where asinValue = sasin $ smult imagI com
     asainh _ = withError InvalidType
 
     sacosh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    sacosh (Real real)
-        | (-1) <= real && real <= 1 = withValue $ Real $ acosh real
-        | otherwise = sacosh $ Complex real 0
-    sacosh com@Complex{} = withValue $ smult imagI (value $ sacos com)
+    sacosh (Real realVal)
+        | (-1) <= realVal && realVal <= 1 = withValue $ real $ acosh realVal
+        | otherwise = sacosh $ Complex realVal 0
+    sacosh com@Complex{} = computeRight imagI acosValue smult
+        where acosValue = sacos com
     sacosh _ = withError InvalidType
 
     satanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
-    satanh (Real real)
-        | (-1) <= real && real <= 1 = withValue $ Real $ atanh real
-        | otherwise = satanh $ Complex real 0
-    satanh com@Complex{} = sdiv (value $ satan $ smult imagI com) imagI
+    satanh (Real realVal)
+        | (-1) <= realVal && realVal <= 1 = withValue $ real $ atanh realVal
+        | otherwise = satanh $ Complex realVal 0
+    satanh com@Complex{} = resolveLeft atanValue imagI sdiv
+        where atanValue = satan $ smult imagI com
     satanh _ = withError InvalidType

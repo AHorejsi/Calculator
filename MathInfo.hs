@@ -18,7 +18,12 @@ module MathInfo (
     isFailure,
     value,
     errorSet,
+    resolveLeft,
+    resolveRight,
+    computeLeft,
+    computeRight,
     combine,
+    hash,
     (==),
     (/=),
     show
@@ -54,6 +59,11 @@ module MathInfo (
     withErrorSet :: HashSet MathError -> MathResult a
     withErrorSet errorSet = Failure errorSet
 
+    _convert :: MathResult a -> MathResult b
+    _convert result
+        | isFailure result = withErrorSet $ errorSet result
+        | otherwise = error "Result is valid"
+
     value :: MathResult a -> a
     value (Success val) = val
     value Failure{} = error "Invalid result"
@@ -70,12 +80,37 @@ module MathInfo (
     isFailure :: MathResult a -> Bool
     isFailure result = not $ isSuccess result
 
+    resolveLeft :: MathResult a -> b -> (a -> b -> MathResult c) -> MathResult c
+    resolveLeft left right func
+        | isSuccess left = func leftValue right
+        | otherwise = _convert left
+        where leftValue = value left
+              leftErrorSet = errorSet left
+
+    resolveRight :: a -> MathResult b -> (a -> b -> MathResult c) -> MathResult c
+    resolveRight left right func
+        | isSuccess right = func left rightValue
+        | otherwise = _convert right
+        where rightValue = value right
+
+    computeLeft :: MathResult a -> b -> (a -> b -> c) -> MathResult c
+    computeLeft left right func
+        | isSuccess left = withValue $ func leftValue right
+        | otherwise = _convert left
+        where leftValue = value left
+
+    computeRight :: a -> MathResult b -> (a -> b -> c) -> MathResult c
+    computeRight left right func
+        | isSuccess right = withValue $ func left rightValue
+        | otherwise = _convert right
+        where rightValue = value right
+
     combine :: MathResult a -> MathResult b -> (a -> b -> MathResult c) -> MathResult c
     combine left right func
         | (isSuccess left) && (isSuccess right) = func leftValue rightValue
         | (isFailure left) && (isFailure right) = Failure $ unions [leftErrorSet, rightErrorSet]
-        | isFailure left = withErrorSet leftErrorSet
-        | isFailure right = withErrorSet rightErrorSet
+        | isFailure left = _convert left
+        | isFailure right = _convert right
         where leftValue = value left
               rightValue = value right
               leftErrorSet = errorSet left

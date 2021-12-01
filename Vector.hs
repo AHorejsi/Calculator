@@ -14,8 +14,8 @@ module Vector (
     vmults,
     vscale
 ) where
-    import Scalar (Scalar, isQuaternion, zero, splus, sminus, smult)
-    import MathInfo (MathResult, MathError(InvalidIndex, InvalidLength, InvalidType), value, errorSet, withValue, withError, withErrorSet, isSuccess)
+    import Scalar
+    import MathInfo
 
     newtype Vector a = Vector {
         _pos :: [Scalar a]

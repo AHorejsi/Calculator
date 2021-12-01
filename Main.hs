@@ -3,7 +3,7 @@ import Scalar
 import Vector
 
 val :: (RealFloat a) => Scalar a
-val = complex 2 0
+val = real 7
 
 main :: IO ()
-main = putStrLn $ show $ sasin val
+main = putStrLn $ show $ sasinh val
