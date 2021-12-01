@@ -52,8 +52,8 @@ module Scalar (
     (/=),
     show
 ) where
-    import MathInfo
     import Data.HashSet
+    import MathInfo
 
     data Scalar a = Real {
         _rreal :: a
@@ -247,22 +247,22 @@ module Scalar (
               denominator = Real $ real * real + imag0 * imag0 + imag1 * imag1 + imag2 * imag2
     sinv val = sdiv one val
 
-    sconj :: (Num a) => Scalar a -> Scalar a
-    sconj (Real real) = Real real
-    sconj (Complex real imag0) = Complex real (-imag0)
-    sconj (Quaternion real imag0 imag1 imag2) = Quaternion real (-imag0) (-imag1) (-imag2)
+    sconj :: (RealFloat a) => Scalar a -> Scalar a
+    sconj (Real realVal) = real realVal
+    sconj (Complex realVal imag0Val) = complex realVal (-imag0Val)
+    sconj (Quaternion realVal imag0Val imag1Val imag2Val) = quaternion realVal (-imag0Val) (-imag1Val) (-imag2Val)
 
     snorm :: (RealFloat a, Eq a) => Scalar a -> MathResult (Scalar a)
     snorm value = sdiv value (sabs value)
 
     sarg :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     sarg Real{} = withValue $ zero
-    sarg (Complex 0 imag0) = withValue $ if imag0 < 0 then value $ sdiv (sneg spi) two else if imag0 > 0 then value $ sdiv spi two else zero
-    sarg (Complex real imag0) = withValue $ Real $ atan2 imag0 real
+    sarg (Complex 0 imag0Val) = withValue $ if imag0Val < 0 then value $ sdiv (sneg spi) two else if imag0Val > 0 then value $ sdiv spi two else zero
+    sarg (Complex realVal imag0Val) = withValue $ real $ atan2 imag0Val realVal
     sarg _ = withError InvalidType
 
     sexp :: (RealFloat a) => Scalar a -> Scalar a
-    sexp (Real real) = Real $ exp real
+    sexp (Real realVal) = real $ exp realVal
     sexp com@Complex{} = value $ spow (real $ exp 1) com
     sexp quat@(Quaternion real imag0 imag1 imag2) = smult (sexp $ Real real) (splus (value $ scos b) (smult (value $ snorm a) (value $ ssin b)))
         where a = Quaternion 0 imag0 imag1 imag2
@@ -296,7 +296,7 @@ module Scalar (
 
     scos :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     scos (Real realVal) = withValue $ real $ cos realVal
-    scos (Complex realVal imag0Val) = withValue $ Complex ((cos realVal) * (cosh imag0Val)) (-(sin realVal) * (sinh imag0Val))
+    scos (Complex realVal imag0Val) = withValue $ complex ((cos realVal) * (cosh imag0Val)) (-(sin realVal) * (sinh imag0Val))
     scos _ = withError InvalidType
 
     stan :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
@@ -306,12 +306,12 @@ module Scalar (
 
     ssinh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     ssinh (Real realVal) = withValue $ real $ sinh realVal
-    ssinh (Complex realVal imag0Val) = withValue $ Complex ((sinh realVal) * (cos imag0Val)) ((cosh realVal) * (sin imag0Val))
+    ssinh (Complex realVal imag0Val) = withValue $ complex ((sinh realVal) * (cos imag0Val)) ((cosh realVal) * (sin imag0Val))
     ssinh _ = withError InvalidType
 
     scosh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)
     scosh (Real realVal) = withValue $ real $ cosh realVal
-    scosh (Complex realVal imag0Val) = withValue $ Complex ((cosh realVal) * (cos imag0Val)) ((sinh realVal) * (sin imag0Val))
+    scosh (Complex realVal imag0Val) = withValue $ complex ((cosh realVal) * (cos imag0Val)) ((sinh realVal) * (sin imag0Val))
     scosh _ = withError InvalidType
 
     stanh :: (RealFloat a) => Scalar a -> MathResult (Scalar a)

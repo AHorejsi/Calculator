@@ -19,8 +19,10 @@ executable Calculator
   main-is: Main.hs
   other-modules:
     MathInfo,
+    Vec,
     Scalar,
-    Vector
+    Vector,
+    NumberList
   -- other-extensions:
   build-depends: 
     base ^>=4.14.1.0,

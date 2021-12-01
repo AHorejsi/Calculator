@@ -12,14 +12,15 @@ module Vector (
     vminus,
     smultv,
     vmults,
-    vscale
+    vscale,
+    vdot
 ) where
-    import Scalar
     import MathInfo
+    import Scalar
 
     newtype Vector a = Vector {
         _pos :: [Scalar a]
-    }
+    } deriving (Eq, Show)
 
     vector :: [Scalar a] -> MathResult (Vector a)
     vector pos
@@ -68,12 +69,12 @@ module Vector (
 
     vplus :: (RealFloat a) => Vector a -> Vector a -> MathResult (Vector a)
     vplus left@(Vector leftPos) right@(Vector rightPos)
-        | not $ equalDimensions left right = withError InvalidLength
+        | not $ equalDimensions left right = withError UnequalDimensions
         | otherwise = withValue $ Vector $ zipWith splus leftPos rightPos
 
     vminus :: (RealFloat a) => Vector a -> Vector a -> MathResult (Vector a)
     vminus left@(Vector leftPos) right@(Vector rightPos)
-        | not $ equalDimensions left right = withError InvalidLength
+        | not $ equalDimensions left right = withError UnequalDimensions
         | otherwise = withValue $ Vector $ zipWith sminus leftPos rightPos
 
     smultv :: (RealFloat a) => Scalar a -> Vector a -> MathResult (Vector a)
@@ -86,11 +87,11 @@ module Vector (
     
     vscale :: (RealFloat a) => Vector a -> Vector a -> MathResult (Vector a)
     vscale left@(Vector leftPos) right@(Vector rightPos)
-        | not $ equalDimensions left right = withError InvalidLength
+        | not $ equalDimensions left right = withError UnequalDimensions
         | otherwise = withValue $ Vector $ zipWith smult leftPos rightPos
 
     vdot :: (RealFloat a) => Vector a -> Vector a -> MathResult (Scalar a)
     vdot left right
-        | isSuccess scaleResult = withValue $ foldr splus zero (_pos $ value scaleResult)
-        | otherwise = withErrorSet $ errorSet scaleResult
+        | isSuccess scaleResult = withValue $ foldl splus zero (_pos $ value scaleResult)
+        | otherwise = convert scaleResult
         where scaleResult = vscale left right
