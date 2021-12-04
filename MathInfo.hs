@@ -8,17 +8,19 @@ module MathInfo (
         LogarithmBaseOfZero,
         InvalidIndex,
         InvalidLength,
-        UnequalDimensions,
+        UnequalLength,
         InvalidType
     ),
     MathResult,
     withValue,
     withError,
     withErrorSet,
+    withErrorList,
     isSuccess,
     isFailure,
     value,
     errorSet,
+    resolve,
     resolveLeft,
     resolveRight,
     computeLeft,
@@ -31,8 +33,8 @@ module MathInfo (
     show
 ) where
     import GHC.Generics
-    import Data.Hashable
-    import Data.HashSet
+    import Data.Hashable as Hashable
+    import Data.HashSet as HashSet
 
     data MathError =
         DivideByZero |
@@ -41,7 +43,7 @@ module MathInfo (
         LogarithmBaseOfZero |
         InvalidIndex |
         InvalidLength |
-        UnequalDimensions |
+        UnequalLength |
         InvalidType
         deriving (Eq, Show, Enum, Generic)
 
@@ -57,10 +59,16 @@ module MathInfo (
     withValue value = Success value
 
     withError :: MathError -> MathResult a
-    withError errorValue = withErrorSet $ singleton errorValue
+    withError errorValue = withErrorSet $ HashSet.singleton errorValue
 
     withErrorSet :: HashSet MathError -> MathResult a
     withErrorSet errorSet = Failure errorSet
+
+    withErrorList :: [MathError] -> MathResult a
+    withErrorList errorList
+        | (length errorList) /= (HashSet.size errorSet) = error "Duplicate errors"
+        | otherwise = withErrorSet errorSet
+        where errorSet = HashSet.fromList errorList
 
     convert :: MathResult a -> MathResult b
     convert result
@@ -74,7 +82,7 @@ module MathInfo (
 
     errorSet :: MathResult a -> HashSet MathError
     errorSet result
-        | isSuccess result = empty
+        | isSuccess result = HashSet.empty
         | otherwise = _errors result
 
     isSuccess :: MathResult a -> Bool
@@ -92,10 +100,13 @@ module MathInfo (
               leftErrorSet = errorSet left
 
     resolveRight :: a -> MathResult b -> (a -> b -> MathResult c) -> MathResult c
-    resolveRight left right func
-        | isSuccess right = func left rightValue
-        | otherwise = convert right
-        where rightValue = value right
+    resolveRight left right func = resolveLeft right left (flip func)
+
+    resolve :: MathResult a -> (a -> b) -> MathResult b
+    resolve result func
+        | isSuccess result = withValue $ func resultValue
+        | otherwise = convert result
+        where resultValue = value result
 
     computeLeft :: MathResult a -> b -> (a -> b -> c) -> MathResult c
     computeLeft left right func
@@ -104,15 +115,12 @@ module MathInfo (
         where leftValue = value left
 
     computeRight :: a -> MathResult b -> (a -> b -> c) -> MathResult c
-    computeRight left right func
-        | isSuccess right = withValue $ func left rightValue
-        | otherwise = convert right
-        where rightValue = value right
+    computeRight left right func = computeLeft right left (flip func)
 
     combine :: MathResult a -> MathResult b -> (a -> b -> MathResult c) -> MathResult c
     combine left right func
         | (isSuccess left) && (isSuccess right) = func leftValue rightValue
-        | (isFailure left) && (isFailure right) = Failure $ unions [leftErrorSet, rightErrorSet]
+        | (isFailure left) && (isFailure right) = withErrorSet $ HashSet.unions [leftErrorSet, rightErrorSet]
         | isFailure left = convert left
         | isFailure right = convert right
         where leftValue = value left

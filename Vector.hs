@@ -1,5 +1,5 @@
 module Vector (
-    Vector,
+    BigVector,
     vector,
     dimensions,
     equalDimensions,
@@ -18,29 +18,31 @@ module Vector (
     import MathInfo
     import Scalar
 
-    newtype Vector a = Vector {
-        _pos :: [Scalar a]
+    newtype BigVector = BigVector {
+        _pos :: [BigScalar]
     } deriving (Eq, Show)
 
-    vector :: [Scalar a] -> MathResult (Vector a)
+    vector :: [BigScalar] -> MathResult BigVector
     vector pos
-        | containsQuaternion pos = withError InvalidType
-        | otherwise = withValue $ Vector pos
-        where containsQuaternion [] = False
-              containsQuaternion (val:vals) = (isQuaternion val) || (containsQuaternion vals)
+        | _containsQuaternion pos = withError InvalidType
+        | otherwise = withValue $ BigVector pos
 
-    dimensions :: Vector a -> Int
-    dimensions (Vector pos) = length pos
+    _containsQuaternion :: [BigScalar] -> Bool
+    _containsQuaternion [] = False
+    _containsQuaternion (val:vals) = (isQuaternion val) || (_containsQuaternion vals)
 
-    equalDimensions :: Vector a -> Vector a -> Bool
+    dimensions :: BigVector -> Int
+    dimensions (BigVector pos) = length pos
+
+    equalDimensions :: BigVector -> BigVector -> Bool
     equalDimensions left right = (dimensions left) == (dimensions right)
 
-    wPos :: Vector a -> MathResult (Scalar a)
+    wPos :: BigVector -> MathResult BigScalar
     wPos vec
         | 4 == (dimensions vec) = withValue $ head $ _pos vec
         | otherwise = withError InvalidLength
 
-    xPos :: Vector a -> MathResult (Scalar a)
+    xPos :: BigVector -> MathResult BigScalar
     xPos vec
         | vecLength <= 3 = withValue $ head vecPos
         | 4 == vecLength = withValue $ vecPos !! 1
@@ -48,7 +50,7 @@ module Vector (
         where vecLength = dimensions vec
               vecPos = _pos vec
 
-    yPos :: Vector a -> MathResult (Scalar a)
+    yPos :: BigVector -> MathResult BigScalar
     yPos vec
         | vecLength <= 3 = withValue $ vecPos !! 1
         | 4 == vecLength = withValue $ vecPos !! 2
@@ -56,42 +58,39 @@ module Vector (
         where vecLength = dimensions vec
               vecPos = _pos vec
     
-    zPos :: Vector a -> MathResult (Scalar a)
+    zPos :: BigVector -> MathResult BigScalar
     zPos vec
         | 3 == vecLength || 4 == vecLength = withValue $ last $ _pos vec
         | otherwise = withError InvalidLength
         where vecLength = dimensions vec
 
-    valPos :: Vector a -> Int -> MathResult (Scalar a)
+    valPos :: BigVector -> Int -> MathResult BigScalar
     valPos vec index
         | index >= (dimensions vec) = withError InvalidIndex
         | otherwise = withValue $ (_pos vec) !! index
 
-    vplus :: (RealFloat a) => Vector a -> Vector a -> MathResult (Vector a)
-    vplus left@(Vector leftPos) right@(Vector rightPos)
-        | not $ equalDimensions left right = withError UnequalDimensions
-        | otherwise = withValue $ Vector $ zipWith splus leftPos rightPos
+    vplus :: BigVector -> BigVector -> MathResult BigVector
+    vplus = _binaryOperation splus
 
-    vminus :: (RealFloat a) => Vector a -> Vector a -> MathResult (Vector a)
-    vminus left@(Vector leftPos) right@(Vector rightPos)
-        | not $ equalDimensions left right = withError UnequalDimensions
-        | otherwise = withValue $ Vector $ zipWith sminus leftPos rightPos
+    vminus :: BigVector -> BigVector -> MathResult BigVector
+    vminus = _binaryOperation sminus
 
-    smultv :: (RealFloat a) => Scalar a -> Vector a -> MathResult (Vector a)
-    smultv left (Vector rightPos)
+    vscale :: BigVector -> BigVector -> MathResult BigVector
+    vscale = _binaryOperation smult
+
+    _binaryOperation :: BinaryScalarOperation -> BigVector -> BigVector -> MathResult BigVector
+    _binaryOperation operation left@(BigVector leftPos) right@(BigVector rightPos)
+        | not $ equalDimensions left right = withError UnequalLength
+        | otherwise = withValue $ BigVector $ zipWith operation leftPos rightPos
+
+    smultv :: BigScalar -> BigVector -> MathResult BigVector
+    smultv left (BigVector rightPos)
         | isQuaternion left = withError InvalidType
-        | otherwise = withValue $ Vector $ map (smult left) rightPos
+        | otherwise = withValue $ BigVector $ map (smult left) rightPos
 
-    vmults :: (RealFloat a) => Vector a -> Scalar a -> MathResult (Vector a)
+    vmults :: BigVector -> BigScalar -> MathResult BigVector
     vmults = flip smultv
-    
-    vscale :: (RealFloat a) => Vector a -> Vector a -> MathResult (Vector a)
-    vscale left@(Vector leftPos) right@(Vector rightPos)
-        | not $ equalDimensions left right = withError UnequalDimensions
-        | otherwise = withValue $ Vector $ zipWith smult leftPos rightPos
 
-    vdot :: (RealFloat a) => Vector a -> Vector a -> MathResult (Scalar a)
-    vdot left right
-        | isSuccess scaleResult = withValue $ foldl splus zero (_pos $ value scaleResult)
-        | otherwise = convert scaleResult
+    vdot :: BigVector -> BigVector -> MathResult BigScalar
+    vdot left right = resolve scaleResult (\vec -> foldl splus zero (_pos vec))
         where scaleResult = vscale left right
