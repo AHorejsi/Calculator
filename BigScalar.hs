@@ -21,6 +21,7 @@ module BigScalar (
     negOne,
     spi,
     se,
+    snan,
     imagI,
     imagJ,
     imagK,
@@ -68,11 +69,11 @@ module BigScalar (
 ) where
     import GHC.Generics
     import Text.Printf
-    import Data.Hashable
-    import Data.Number.Fixed
+    import qualified Data.Hashable as H
+    import qualified Data.Number.Fixed as F
     import MathInfo
     
-    type BigNum = Fixed Prec50
+    type BigNum = F.Fixed F.Prec50
 
     data BigScalar = BigReal {
         _rreal :: BigNum
@@ -86,12 +87,13 @@ module BigScalar (
         _qimag2 :: BigNum
     } deriving (Eq, Generic)
 
-    instance Hashable BigScalar where
-        hashWithSalt salt (BigReal realVal) = hash $ (fromEnum realVal) + salt
-        hashWithSalt salt (BigComplex realVal imag0Val) = hash $ (fromEnum realVal) + (fromEnum imag0Val) + salt
-        hashWithSalt salt (BigQuaternion realVal imag0Val imag1Val imag2Val) = hash $ (fromEnum realVal) + (fromEnum imag0Val) + (fromEnum imag0Val) + (fromEnum imag2Val) + salt
+    instance H.Hashable BigScalar where
+        hashWithSalt salt (BigReal realVal) = H.hashWithSalt salt (fromEnum realVal)
+        hashWithSalt salt (BigComplex realVal imag0Val) = H.hashWithSalt salt ((fromEnum realVal) + (fromEnum imag0Val))
+        hashWithSalt salt (BigQuaternion realVal imag0Val imag1Val imag2Val) = H.hashWithSalt salt ((fromEnum realVal) + (fromEnum imag0Val) + (fromEnum imag0Val) + (fromEnum imag2Val))
 
     instance Show BigScalar where
+
         show (BigReal realVal) = printf "Real(%s)" (show realVal)
         show (BigComplex realVal imag0Val) = printf "Complex(%s,%s)" (show realVal) (show imag0Val)
         show (BigQuaternion realVal imag0Val imag1Val imag2Val) = printf "Quaternion(%s,%s,%s,%s)" (show realVal) (show imag0Val) (show imag1Val) (show imag2Val)
@@ -157,6 +159,9 @@ module BigScalar (
 
     se :: BigScalar
     se = BigReal $ exp 1
+
+    snan :: BigScalar
+    snan = BigReal $ 0.0 / 0.0
 
     imagI :: BigScalar
     imagI = BigComplex 0 1
@@ -270,7 +275,7 @@ module BigScalar (
     spow (BigReal 0) (BigReal 0) = withError ZeroToPowerOfZero
     spow _ (BigReal 0) = withValue one
     spow (BigReal 0) _ = withValue zero
-    spow (BigReal leftReal) (BigReal rightReal) = withValue $ BigReal $ leftReal ** rightReal
+    spow (BigReal leftReal) (BigReal rightReal) = withValue $ real $ leftReal ** rightReal
     spow left right = withValue $ sexp $ smult (value $ slog left) right
 
     ssqrt :: BigScalar -> BigScalar

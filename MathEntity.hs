@@ -1,5 +1,7 @@
 module MathEntity (
     MathEntity,
+    (==),
+    (/=),
     show
 ) where
     import BigScalar

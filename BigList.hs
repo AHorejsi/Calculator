@@ -115,8 +115,7 @@ module BigList (
     sminusl left = _unaryOperation (sminus left)
 
     lminuss :: BigList -> BigScalar -> BigList
-    lminuss left right = value $ lminus left rightAsList
-        where rightAsList = _pad (size left) right empty
+    lminuss left right = _unaryOperation ((flip sminus) right) left
 
     lminus :: BigList -> BigList -> MathResult BigList
     lminus = _binaryOperation sminus
@@ -125,12 +124,10 @@ module BigList (
     lminusPad = _binaryOperationPad sminus
 
     smultl :: BigScalar -> BigList -> BigList
-    smultl left right = value $ lmult leftAsList right
-        where leftAsList = _pad (size right) left empty
+    smultl left = _unaryOperation (smult left)
 
     lmults :: BigList -> BigScalar -> BigList
-    lmults left right = value $ lmult left rightAsList
-        where rightAsList = _pad (size left) right empty
+    lmults left right = _unaryOperation ((flip smult) right) left
 
     lmult :: BigList -> BigList -> MathResult BigList
     lmult = _binaryOperation smult
@@ -139,12 +136,10 @@ module BigList (
     lmultPad = _binaryOperationPad smult
 
     sdivl :: BigScalar -> BigList -> MathResult BigList
-    sdivl left right = ldiv leftAsList right
-        where leftAsList = _pad (size right) left empty
+    sdivl left = _errableUnaryOperation (sdiv left)
 
     ldivs :: BigList -> BigScalar -> MathResult BigList
-    ldivs left right = ldiv left rightAsList
-        where rightAsList = _pad (size left) right empty
+    ldivs left right = _errableUnaryOperation ((flip sdiv) right) left
 
     ldiv :: BigList -> BigList -> MathResult BigList
     ldiv = _errableBinaryOperation sdiv
@@ -153,12 +148,10 @@ module BigList (
     ldivPad = _errableBinaryOperationPad sdiv
 
     spowl :: BigScalar -> BigList -> MathResult BigList
-    spowl left right = lpow leftAsList right
-        where leftAsList = _pad (size right) left empty
+    spowl left = _errableUnaryOperation (spow left)
 
     lpows :: BigList -> BigScalar -> MathResult BigList
-    lpows left right = lpow left rightAsList
-        where rightAsList = _pad (size left) right empty
+    lpows left right = _errableUnaryOperation ((flip spow) right) left
 
     lpow :: BigList -> BigList -> MathResult BigList
     lpow = _errableBinaryOperation spow
@@ -170,10 +163,10 @@ module BigList (
     lneg = smultl negOne
 
     _unaryOperation :: UnaryScalarOperation -> BigList -> BigList
-    _unaryOperation operation list@(BigList vals) = BigList $ V.map operation vals
+    _unaryOperation operation (BigList vals) = BigList $ V.map operation vals
 
     _errableUnaryOperation :: ErrableUnaryScalarOperation -> BigList -> MathResult BigList
-    _errableUnaryOperation operation list@(BigList vals)
+    _errableUnaryOperation operation (BigList vals)
         | V.null errors = withValue $ BigList $ V.map value result
         | otherwise = withErrorSet $ HS.unions $ V.toList $ V.map errorSet errors
         where result = V.map operation vals

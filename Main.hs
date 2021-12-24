@@ -19,4 +19,4 @@ list1 :: BigList
 list1 = list [real 1, real 2, real 1, real 1, real 2, real 3, real 2, complex 1 2, complex 1 2, complex 1 2, complex 1 2, complex 1 2]
 
 main :: IO ()
-main = putStrLn $ "\n" ++ (show $ lmode list1) ++ "\n"
+main = putStrLn $ "\n" ++ (show $ smult val2 val3) ++ " " ++ (show $ smult val3 val2) ++ "\n"

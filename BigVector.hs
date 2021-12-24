@@ -13,7 +13,14 @@ module BigVector (
     smultv,
     vmults,
     vscale,
-    vdot
+    vdot,
+    vcross,
+    vdivs,
+    vneg,
+    vabs,
+    vnorm,
+    vdist,
+    vangle
 ) where
     import Text.Printf
     import MathInfo
@@ -41,6 +48,9 @@ module BigVector (
 
     equalDimensions :: BigVector -> BigVector -> Bool
     equalDimensions left right = (dimensions left) == (dimensions right)
+
+    isNull :: BigVector -> Bool
+    isNull (BigVector pos) = all (==zero) pos
 
     wPos :: BigVector -> MathResult BigScalar
     wPos vec
@@ -95,5 +105,55 @@ module BigVector (
     vmults = flip smultv
 
     vdot :: BigVector -> BigVector -> MathResult BigScalar
-    vdot left right = unResolve scaleResult (\vec -> foldl splus zero (_pos vec))
+    vdot left right = unResolve scaleResult _vsum
         where scaleResult = vscale left right
+
+    vcross :: BigVector -> BigVector -> MathResult BigVector
+    vcross left right
+        | 3 == (dimensions left) && 3 == (dimensions right) = withValue $ BigVector [resultXPos, resultYPos, resultZPos]
+        | otherwise = withError InvalidLength
+        where leftXPos = value $ xPos left
+              leftYPos = value $ yPos left
+              leftZPos = value $ zPos left
+              rightXPos = value $ xPos right
+              rightYPos = value $ yPos right
+              rightZPos = value $ zPos right
+              resultXPos = sminus (smult leftYPos rightZPos) (smult leftZPos rightYPos)
+              resultYPos = sminus (smult leftZPos rightXPos) (smult leftXPos rightZPos)
+              resultZPos = sminus (smult leftXPos rightYPos) (smult leftYPos rightXPos)
+
+    vdivs :: BigVector -> BigScalar -> MathResult BigVector
+    vdivs left right
+        | zero == right = withError DivideByZero
+        | otherwise = vmults left rightInv
+        where rightInv = value $ sinv right
+
+    vneg :: BigVector -> BigVector
+    vneg = value . (smultv negOne)
+
+    vabs :: BigVector -> BigScalar
+    vabs vec = ssqrt $ value $ vdot vec vec
+
+    vnorm :: BigVector -> MathResult BigVector
+    vnorm vec
+        | isNull vec = withError NullVector
+        | otherwise = vdivs vec (vabs vec)
+
+    vdist :: BigVector -> BigVector -> MathResult BigScalar
+    vdist left right
+        | isFailure subtResult = convert subtResult
+        | otherwise = withValue $ ssqrt $ _sum $ map (value . (flip spow) two) (_pos subtValue)
+        where subtResult = vminus left right
+              subtValue = value subtResult
+
+    _vsum :: BigVector -> BigScalar
+    _vsum (BigVector pos) = _sum pos
+
+    _sum :: [BigScalar] -> BigScalar
+    _sum pos = foldl splus zero pos
+
+    vangle :: BigVector -> BigVector -> MathResult BigScalar
+    vangle left right
+        | not $ equalDimensions left right = withError UnequalLength
+        | (isNull left) || (isNull right) = withError NullVector
+        | otherwise = sacos $ value $ sdiv (value $ vdot left right) (smult (vabs left) (vabs right))

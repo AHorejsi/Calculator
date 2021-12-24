@@ -8,6 +8,7 @@ module MathInfo (
         LogarithmBaseOfZero,
         InvalidIndex,
         InvalidLength,
+        NullVector,
         ZeroLength,
         UnequalLength,
         NoncomparableType,
@@ -35,15 +36,16 @@ module MathInfo (
     binCombine,
     errBinCombine,
     convert,
-    hash,
+    H.hash,
+    H.hashWithSalt,
     (==),
     (/=),
     show
 ) where
     import GHC.Generics
     import Text.Printf
-    import Data.Hashable as Hashable
-    import Data.HashSet as HashSet
+    import qualified Data.Hashable as H
+    import qualified Data.HashSet as HS
 
     data MathError =
         DivideByZero |
@@ -52,6 +54,7 @@ module MathInfo (
         LogarithmBaseOfZero |
         InvalidIndex |
         InvalidLength |
+        NullVector |
         ZeroLength |
         UnequalLength |
         NoncomparableType |
@@ -61,19 +64,20 @@ module MathInfo (
     data MathResult a = Success {
         _val :: a
     } | Failure {
-        _errors :: HashSet MathError
+        _errors :: HS.HashSet MathError
     } deriving (Eq)
 
     instance (Show a) => Show (MathResult a) where
         show (Success val) = printf "Success{ %s }" (show val)
-        show (Failure errors) = printf "Failure{ %s }" (_str $ HashSet.toList errors)
+        show (Failure errors) = printf "Failure{ %s }" (_str $ HS.toList errors)
 
     type UnaryOperation a b = (a -> b)
     type ErrableUnaryOperation a b  = (a -> MathResult b)
     type BinaryOperation a b c  = (a -> b -> c)
     type ErrableBinaryOperation a b c = (a -> b -> MathResult c)
 
-    instance Hashable MathError
+    instance H.Hashable MathError where
+        hashWithSalt salt value = H.hash $ (fromEnum value) + salt
 
     _str :: [MathError] -> String
     _str [] = ""
@@ -84,16 +88,16 @@ module MathInfo (
     withValue = Success
 
     withError :: MathError -> MathResult a
-    withError errorValue = withErrorSet $ HashSet.singleton errorValue
+    withError errorValue = withErrorSet $ HS.singleton errorValue
 
-    withErrorSet :: HashSet MathError -> MathResult a
+    withErrorSet :: HS.HashSet MathError -> MathResult a
     withErrorSet = Failure
 
     withErrorList :: [MathError] -> MathResult a
     withErrorList errorList
-        | (length errorList) /= (HashSet.size errorSet) = error "Duplicate errors"
+        | (length errorList) /= (HS.size errorSet) = error "Duplicate errors"
         | otherwise = withErrorSet errorSet
-        where errorSet = HashSet.fromList errorList
+        where errorSet = HS.fromList errorList
 
     convert :: MathResult a -> MathResult b
     convert result
@@ -101,14 +105,12 @@ module MathInfo (
         | otherwise = error "Result is valid"
 
     value :: MathResult a -> a
-    value result
-        | isSuccess result = _val result
-        | otherwise = error "Result is invalid"
+    value (Success val) = val
+    value (Failure _) = error "Result is invalid"
 
-    errorSet :: MathResult a -> HashSet MathError
-    errorSet result
-        | isSuccess result = HashSet.empty
-        | otherwise = _errors result
+    errorSet :: MathResult a -> HS.HashSet MathError
+    errorSet (Success _) = HS.empty
+    errorSet (Failure errors) = errors
 
     isSuccess :: MathResult a -> Bool
     isSuccess Success{} = True
@@ -150,7 +152,7 @@ module MathInfo (
     binCombine :: MathResult a -> MathResult b -> BinaryOperation a b c -> MathResult c
     binCombine left right func
         | (isSuccess left) && (isSuccess right) = withValue $ func leftValue rightValue
-        | (isFailure left) && (isFailure right) = withErrorSet $ HashSet.unions [leftErrorSet, rightErrorSet]
+        | (isFailure left) && (isFailure right) = withErrorSet $ HS.unions [leftErrorSet, rightErrorSet]
         | isFailure left = convert left
         | isFailure right = convert right
         where leftValue = value left
@@ -161,7 +163,7 @@ module MathInfo (
     errBinCombine :: MathResult a -> MathResult b -> ErrableBinaryOperation a b c -> MathResult c
     errBinCombine left right func
         | (isSuccess left) && (isSuccess right) = func leftValue rightValue
-        | (isFailure left) && (isFailure right) = withErrorSet $ HashSet.unions [leftErrorSet, rightErrorSet]
+        | (isFailure left) && (isFailure right) = withErrorSet $ HS.unions [leftErrorSet, rightErrorSet]
         | isFailure left = convert left
         | isFailure right = convert right
         where leftValue = value left

@@ -42,4 +42,4 @@ module Settings (
         realForm :: RealForm,
         complexForm :: ComplexForm,
         angleUnit :: AngleUnit
-    }
+    } deriving (Show)

@@ -19,7 +19,6 @@ executable Calculator
   main-is: Main.hs
   other-modules:
     MathInfo,
-    Files,
     Settings,
     BigScalar,
     BigVector,
@@ -32,7 +31,6 @@ executable Calculator
     unordered-containers ^>=0.2.15.0,
     hashable ^>=1.4.0.1,
     vector ^>=0.12.3.1,
-    numbers ^>=3000.2.0.2,
-    split ^>=0.2.3.4
+    numbers ^>=3000.2.0.2
   -- hs-source-dirs:
   default-language: Haskell2010
