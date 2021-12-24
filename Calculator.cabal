@@ -19,15 +19,20 @@ executable Calculator
   main-is: Main.hs
   other-modules:
     MathInfo,
-    Scalar,
-    Vector,
-    NumberList
+    Files,
+    Settings,
+    BigScalar,
+    BigVector,
+    BigList,
+    BigMatrix,
+    MathEntity
   -- other-extensions:
   build-depends: 
     base ^>=4.14.1.0,
     unordered-containers ^>=0.2.15.0,
     hashable ^>=1.4.0.1,
     vector ^>=0.12.3.1,
-    numbers ^>=3000.2.0.2
+    numbers ^>=3000.2.0.2,
+    split ^>=0.2.3.4
   -- hs-source-dirs:
   default-language: Haskell2010

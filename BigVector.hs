@@ -1,4 +1,4 @@
-module Vector (
+module BigVector (
     BigVector,
     vector,
     dimensions,
@@ -7,7 +7,7 @@ module Vector (
     xPos,
     yPos,
     zPos,
-    valPos,
+    vget,
     vplus,
     vminus,
     smultv,
@@ -15,21 +15,26 @@ module Vector (
     vscale,
     vdot
 ) where
+    import Text.Printf
     import MathInfo
-    import Scalar
+    import BigScalar
 
     newtype BigVector = BigVector {
         _pos :: [BigScalar]
-    } deriving (Eq, Show)
+    } deriving (Eq)
+
+    instance Show BigVector where
+        show (BigVector pos) = printf "Vector[%s]" (_str pos)
+
+    _str :: [BigScalar] -> String
+    _str [] = ""
+    _str [val] = printf "%s" (show val)
+    _str (val:vals) = printf "%s, %s" (show val) (_str vals)
 
     vector :: [BigScalar] -> MathResult BigVector
     vector pos
-        | _containsQuaternion pos = withError InvalidType
+        | any isQuaternion pos = withError InvalidType
         | otherwise = withValue $ BigVector pos
-
-    _containsQuaternion :: [BigScalar] -> Bool
-    _containsQuaternion [] = False
-    _containsQuaternion (val:vals) = (isQuaternion val) || (_containsQuaternion vals)
 
     dimensions :: BigVector -> Int
     dimensions (BigVector pos) = length pos
@@ -64,10 +69,8 @@ module Vector (
         | otherwise = withError InvalidLength
         where vecLength = dimensions vec
 
-    valPos :: BigVector -> Int -> MathResult BigScalar
-    valPos vec index
-        | index >= (dimensions vec) = withError InvalidIndex
-        | otherwise = withValue $ (_pos vec) !! index
+    vget :: BigVector -> Int -> BigScalar
+    vget (BigVector pos) index = pos !! index
 
     vplus :: BigVector -> BigVector -> MathResult BigVector
     vplus = _binaryOperation splus
@@ -92,5 +95,5 @@ module Vector (
     vmults = flip smultv
 
     vdot :: BigVector -> BigVector -> MathResult BigScalar
-    vdot left right = resolve scaleResult (\vec -> foldl splus zero (_pos vec))
+    vdot left right = unResolve scaleResult (\vec -> foldl splus zero (_pos vec))
         where scaleResult = vscale left right
