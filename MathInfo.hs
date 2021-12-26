@@ -59,7 +59,7 @@ module MathInfo (
         UnequalLength |
         NoncomparableType |
         InvalidType
-        deriving (Eq, Show, Enum, Generic)
+        deriving (Enum, Generic, Eq, Show)
 
     data MathResult a = Success {
         _val :: a

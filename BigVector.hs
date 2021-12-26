@@ -1,8 +1,9 @@
 module BigVector (
     BigVector,
-    vector,
-    dimensions,
-    equalDimensions,
+    vlist,
+    vvec,
+    vsize,
+    vequalSize,
     wPos,
     xPos,
     yPos,
@@ -23,64 +24,70 @@ module BigVector (
     vangle
 ) where
     import Text.Printf
+    import qualified Data.Vector as V
     import MathInfo
     import BigScalar
 
     newtype BigVector = BigVector {
-        _pos :: [BigScalar]
+        _pos :: V.Vector BigScalar
     } deriving (Eq)
 
     instance Show BigVector where
         show (BigVector pos) = printf "Vector[%s]" (_str pos)
 
-    _str :: [BigScalar] -> String
-    _str [] = ""
-    _str [val] = printf "%s" (show val)
-    _str (val:vals) = printf "%s, %s" (show val) (_str vals)
+    _str :: V.Vector BigScalar -> String
+    _str vals = case V.length vals of 0 -> ""
+                                      1 -> printf "%s" headVal
+                                      _ -> printf "%s, %s" headVal (_str rest)
+        where headVal = show $ V.head vals
+              rest = V.tail vals
 
-    vector :: [BigScalar] -> MathResult BigVector
-    vector pos
+    vlist :: [BigScalar] -> MathResult BigVector
+    vlist pos
         | any isQuaternion pos = withError InvalidType
-        | otherwise = withValue $ BigVector pos
+        | otherwise = withValue $ BigVector $ V.fromList pos
 
-    dimensions :: BigVector -> Int
-    dimensions (BigVector pos) = length pos
+    vvec :: V.Vector BigScalar -> MathResult BigVector
+    vvec = vlist . V.toList
 
-    equalDimensions :: BigVector -> BigVector -> Bool
-    equalDimensions left right = (dimensions left) == (dimensions right)
+    vsize :: BigVector -> Int
+    vsize (BigVector pos) = length pos
+
+    vequalSize :: BigVector -> BigVector -> Bool
+    vequalSize left right = (vsize left) == (vsize right)
 
     isNull :: BigVector -> Bool
-    isNull (BigVector pos) = all (==zero) pos
+    isNull (BigVector pos) = V.all (==zero) pos
 
     wPos :: BigVector -> MathResult BigScalar
     wPos vec
-        | 4 == (dimensions vec) = withValue $ head $ _pos vec
+        | 4 == (vsize vec) = withValue $ V.head $ _pos vec
         | otherwise = withError InvalidLength
 
     xPos :: BigVector -> MathResult BigScalar
     xPos vec
-        | vecLength <= 3 = withValue $ head vecPos
-        | 4 == vecLength = withValue $ vecPos !! 1
+        | vecLength <= 3 = withValue $ V.head vecPos
+        | 4 == vecLength = withValue $ vecPos V.! 1
         | otherwise = withError InvalidLength
-        where vecLength = dimensions vec
+        where vecLength = vsize vec
               vecPos = _pos vec
 
     yPos :: BigVector -> MathResult BigScalar
     yPos vec
-        | vecLength <= 3 = withValue $ vecPos !! 1
-        | 4 == vecLength = withValue $ vecPos !! 2
+        | vecLength <= 3 = withValue $ vecPos V.! 1
+        | 4 == vecLength = withValue $ vecPos V.! 2
         | otherwise = withError InvalidLength
-        where vecLength = dimensions vec
+        where vecLength = vsize vec
               vecPos = _pos vec
     
     zPos :: BigVector -> MathResult BigScalar
     zPos vec
-        | 3 == vecLength || 4 == vecLength = withValue $ last $ _pos vec
+        | 3 == vecLength || 4 == vecLength = withValue $ V.last $ _pos vec
         | otherwise = withError InvalidLength
-        where vecLength = dimensions vec
+        where vecLength = vsize vec
 
     vget :: BigVector -> Int -> BigScalar
-    vget (BigVector pos) index = pos !! index
+    vget (BigVector pos) index = pos V.! index
 
     vplus :: BigVector -> BigVector -> MathResult BigVector
     vplus = _binaryOperation splus
@@ -93,13 +100,13 @@ module BigVector (
 
     _binaryOperation :: BinaryScalarOperation -> BigVector -> BigVector -> MathResult BigVector
     _binaryOperation operation left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ equalDimensions left right = withError UnequalLength
-        | otherwise = withValue $ BigVector $ zipWith operation leftPos rightPos
+        | not $ vequalSize left right = withError UnequalLength
+        | otherwise = withValue $ BigVector $ V.zipWith operation leftPos rightPos
 
     smultv :: BigScalar -> BigVector -> MathResult BigVector
     smultv left (BigVector rightPos)
         | isQuaternion left = withError InvalidType
-        | otherwise = withValue $ BigVector $ map (smult left) rightPos
+        | otherwise = withValue $ BigVector $ V.map (smult left) rightPos
 
     vmults :: BigVector -> BigScalar -> MathResult BigVector
     vmults = flip smultv
@@ -110,7 +117,7 @@ module BigVector (
 
     vcross :: BigVector -> BigVector -> MathResult BigVector
     vcross left right
-        | 3 == (dimensions left) && 3 == (dimensions right) = withValue $ BigVector [resultXPos, resultYPos, resultZPos]
+        | 3 == (vsize left) && 3 == (vsize right) = withValue $ BigVector $ V.fromList [resultXPos, resultYPos, resultZPos]
         | otherwise = withError InvalidLength
         where leftXPos = value $ xPos left
               leftYPos = value $ yPos left
@@ -142,18 +149,18 @@ module BigVector (
     vdist :: BigVector -> BigVector -> MathResult BigScalar
     vdist left right
         | isFailure subtResult = convert subtResult
-        | otherwise = withValue $ ssqrt $ _sum $ map (value . (flip spow) two) (_pos subtValue)
+        | otherwise = withValue $ ssqrt $ _sum $ V.map (value . (flip spow) two) (_pos subtValue)
         where subtResult = vminus left right
               subtValue = value subtResult
 
     _vsum :: BigVector -> BigScalar
     _vsum (BigVector pos) = _sum pos
 
-    _sum :: [BigScalar] -> BigScalar
-    _sum pos = foldl splus zero pos
+    _sum :: V.Vector BigScalar -> BigScalar
+    _sum = V.foldr splus zero
 
     vangle :: BigVector -> BigVector -> MathResult BigScalar
     vangle left right
-        | not $ equalDimensions left right = withError UnequalLength
+        | not $ vequalSize left right = withError UnequalLength
         | (isNull left) || (isNull right) = withError NullVector
         | otherwise = sacos $ value $ sdiv (value $ vdot left right) (smult (vabs left) (vabs right))

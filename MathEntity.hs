@@ -1,9 +1,12 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module MathEntity (
     MathEntity,
     (==),
     (/=),
     show
 ) where
+    import GHC.Generics
     import BigScalar
     import BigVector
     import BigList
@@ -19,8 +22,8 @@ module MathEntity (
         _matrix :: BigMatrix
     } | BoolEntity {
         _bool :: Bool
-    } deriving (Eq)
+    } deriving (Eq, Generic)
 
     instance Show MathEntity where
-        show entity = "MathEntity: " ++ (show entity)
+        show entity = "MathEntity:\n" ++ (show entity)
     

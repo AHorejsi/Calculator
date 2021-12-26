@@ -1,12 +1,12 @@
 module BigList (
     BigList,
-    empty,
-    list,
-    vec,
-    repeat,
-    range,
-    size,
-    equalSize,
+    lempty,
+    llist,
+    lvec,
+    lrepeat,
+    lincrement,
+    lsize,
+    lequalSize,
     lget,
     splusl,
     lpluss,
@@ -67,31 +67,31 @@ module BigList (
         where headVal = show $ V.head vals
               rest = V.tail vals
 
-    empty :: BigList
-    empty = BigList V.empty
+    lempty :: BigList
+    lempty = BigList V.empty
 
-    vec :: V.Vector BigScalar -> BigList
-    vec = BigList
+    lvec :: V.Vector BigScalar -> BigList
+    lvec = BigList
 
-    list :: [BigScalar] -> BigList
-    list scalars = BigList $ V.fromList scalars
+    llist :: [BigScalar] -> BigList
+    llist = BigList . V.fromList
 
-    repeat :: BigScalar -> Int -> BigList
-    repeat scalar count = _pad count scalar empty
+    lrepeat :: BigScalar -> Int -> BigList
+    lrepeat scalar count = _pad count scalar lempty
 
-    range :: BigScalar -> BigScalar -> Int -> BigList
-    range initial increment count = BigList $ _computeRange initial increment count
+    lincrement :: BigScalar -> BigScalar -> Int -> BigList
+    lincrement initial increment count = BigList $ _computeRange initial increment count
     
     _computeRange :: BigScalar -> BigScalar -> Int -> V.Vector BigScalar
     _computeRange _ _ 0 = V.empty
     _computeRange current increment count = V.cons current (_computeRange next increment (count - 1))
         where next = splus current increment
 
-    size :: BigList -> Int
-    size (BigList vals) = V.length vals
+    lsize :: BigList -> Int
+    lsize (BigList vals) = V.length vals
 
-    equalSize :: BigList -> BigList -> Bool
-    equalSize left right = (size left) == (size right)
+    lequalSize :: BigList -> BigList -> Bool
+    lequalSize left right = (lsize left) == (lsize right)
 
     lget :: BigList -> Int -> MathResult BigScalar
     lget list@(BigList vals) index
@@ -174,13 +174,13 @@ module BigList (
 
     _binaryOperation :: BinaryScalarOperation -> BigList -> BigList -> MathResult BigList
     _binaryOperation operation left@(BigList leftVals) right@(BigList rightVals)
-        | not $ equalSize left right = withError UnequalLength
+        | not $ lequalSize left right = withError UnequalLength
         | otherwise = withValue $ BigList $ V.zipWith operation leftVals rightVals
 
     _binaryOperationPad :: BinaryScalarOperation -> BigScalar -> BigList -> BigList -> BigList
     _binaryOperationPad operation scalar left right = value $ _binaryOperation operation leftPadded rightPadded
-        where leftSize = size left
-              rightSize = size right
+        where leftSize = lsize left
+              rightSize = lsize right
               sizeDiff = abs $ leftSize - rightSize
               leftPadded = if leftSize < rightSize then _pad sizeDiff scalar left else left
               rightPadded = if leftSize > rightSize then _pad sizeDiff scalar right else right
@@ -194,8 +194,8 @@ module BigList (
 
     _errableBinaryOperationPad :: ErrableBinaryScalarOperation -> BigScalar -> BigList -> BigList -> MathResult BigList
     _errableBinaryOperationPad operation scalar left right = _errableBinaryOperation operation leftPadded rightPadded
-        where leftSize = size left
-              rightSize = size right
+        where leftSize = lsize left
+              rightSize = lsize right
               sizeDiff = abs $ leftSize - rightSize
               leftPadded = if leftSize < rightSize then _pad sizeDiff scalar left else left
               rightPadded = if leftSize > rightSize then _pad sizeDiff scalar right else right
@@ -225,13 +225,13 @@ module BigList (
     _containsNonreal = V.any $ not . isReal
 
     lsum :: BigList -> BigScalar
-    lsum (BigList vals) = V.foldl splus zero vals
+    lsum (BigList vals) = V.foldr splus zero vals
 
     lcumsum :: BigList -> BigList
     lcumsum (BigList vals) = BigList $ V.scanl splus (V.head vals) (V.tail vals)
 
     lprod :: BigList -> BigScalar
-    lprod (BigList vals) = V.foldl smult one vals
+    lprod (BigList vals) = V.foldr smult one vals
 
     lcumprod :: BigList -> BigList
     lcumprod (BigList vals) = BigList $ V.scanl smult (V.head vals) (V.tail vals)
@@ -240,14 +240,14 @@ module BigList (
     lmean list@(BigList vals)
         | 0 == listSize = withError ZeroLength
         | otherwise = sdiv sumValue (integral listSize)
-        where listSize = size list
+        where listSize = lsize list
               sumValue = lsum list
 
     lgmean :: BigList -> MathResult BigScalar
     lgmean list@(BigList vals)
         | 0 == listSize = withError ZeroLength
         | otherwise = spow prodValue (value $ sinv (integral listSize))
-        where listSize = size list
+        where listSize = lsize list
               prodValue = lprod list
 
     lmedian :: BigList -> MathResult BigScalar
@@ -256,7 +256,7 @@ module BigList (
         | _containsNonreal vals = withError InvalidType
         | even listSize = sdiv (splus (_quickSelect (halfSize - 1) vals) (_quickSelect halfSize vals)) two
         | otherwise = withValue $ _quickSelect halfSize vals
-        where listSize = size list
+        where listSize = lsize list
               halfSize = ceiling $ (fromIntegral listSize) / 2
 
     _quickSelect :: Int -> V.Vector BigScalar -> BigScalar
@@ -285,7 +285,7 @@ module BigList (
               minmaxSum = binCombine minValue maxValue splus
 
     lmode :: BigList -> BigList
-    lmode (BigList vals) = list $ HM.keys modeMap
+    lmode (BigList vals) = llist $ HM.keys modeMap
         where counts = _count vals HM.empty
               maxCount = maximum $ HM.elems counts
               modeMap = HM.filter (==maxCount) counts
