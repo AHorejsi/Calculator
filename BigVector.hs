@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module BigVector (
     BigVector,
     vlist,
@@ -21,33 +23,41 @@ module BigVector (
     vabs,
     vnorm,
     vdist,
-    vangle
+    vangle,
+    asList,
+    asVector,
+    (==),
+    (/=),
+    show
 ) where
-    import Text.Printf
+    import qualified GHC.Generics as G
+    import qualified Text.Printf as TP
+    import qualified Data.Maybe as M
     import qualified Data.Vector as V
-    import MathInfo
-    import BigScalar
+    import qualified Data.Hashable as H
+    import qualified MathInfo as MI
+    import qualified BigScalar as BS
 
     newtype BigVector = BigVector {
-        _pos :: V.Vector BigScalar
-    } deriving (Eq)
+        _pos :: [BS.BigScalar]
+    } deriving (G.Generic, Eq)
+
+    instance H.Hashable BigVector
 
     instance Show BigVector where
-        show (BigVector pos) = printf "Vector[%s]" (_str pos)
+        show (BigVector pos) = TP.printf "Vector[%s]" (_str pos)
 
-    _str :: V.Vector BigScalar -> String
-    _str vals = case V.length vals of 0 -> ""
-                                      1 -> printf "%s" headVal
-                                      _ -> printf "%s, %s" headVal (_str rest)
-        where headVal = show $ V.head vals
-              rest = V.tail vals
+    _str :: [BS.BigScalar] -> String
+    _str [] = ""
+    _str [val] = show val
+    _str (val:vals) = TP.printf "%s, %s" (show val) (_str vals)
 
-    vlist :: [BigScalar] -> MathResult BigVector
+    vlist :: [BS.BigScalar] -> MI.MathResult BigVector
     vlist pos
-        | any isQuaternion pos = withError InvalidType
-        | otherwise = withValue $ BigVector $ V.fromList pos
+        | any BS.isExactQuaternion pos = MI.withError MI.InvalidType
+        | otherwise = MI.withValue $ BigVector pos
 
-    vvec :: V.Vector BigScalar -> MathResult BigVector
+    vvec :: V.Vector BS.BigScalar -> MI.MathResult BigVector
     vvec = vlist . V.toList
 
     vsize :: BigVector -> Int
@@ -57,110 +67,119 @@ module BigVector (
     vequalSize left right = (vsize left) == (vsize right)
 
     isNull :: BigVector -> Bool
-    isNull (BigVector pos) = V.all (==zero) pos
+    isNull (BigVector pos) = all (==BS.zero) pos
 
-    wPos :: BigVector -> MathResult BigScalar
+    wPos :: BigVector -> MI.MathResult BS.BigScalar
     wPos vec
-        | 4 == (vsize vec) = withValue $ V.head $ _pos vec
-        | otherwise = withError InvalidLength
+        | 4 == (vsize vec) = MI.withValue $ head $ _pos vec
+        | otherwise = MI.withError MI.InvalidLength
 
-    xPos :: BigVector -> MathResult BigScalar
+    xPos :: BigVector -> MI.MathResult BS.BigScalar
     xPos vec
-        | vecLength <= 3 = withValue $ V.head vecPos
-        | 4 == vecLength = withValue $ vecPos V.! 1
-        | otherwise = withError InvalidLength
+        | vecLength <= 3 = MI.withValue $ head vecPos
+        | 4 == vecLength = MI.withValue $ vecPos !! 1
+        | otherwise = MI.withError MI.InvalidLength
         where vecLength = vsize vec
               vecPos = _pos vec
 
-    yPos :: BigVector -> MathResult BigScalar
+    yPos :: BigVector -> MI.MathResult BS.BigScalar
     yPos vec
-        | vecLength <= 3 = withValue $ vecPos V.! 1
-        | 4 == vecLength = withValue $ vecPos V.! 2
-        | otherwise = withError InvalidLength
+        | vecLength <= 3 = MI.withValue $ vecPos !! 1
+        | 4 == vecLength = MI.withValue $ vecPos !! 2
+        | otherwise = MI.withError MI.InvalidLength
         where vecLength = vsize vec
               vecPos = _pos vec
     
-    zPos :: BigVector -> MathResult BigScalar
+    zPos :: BigVector -> MI.MathResult BS.BigScalar
     zPos vec
-        | 3 == vecLength || 4 == vecLength = withValue $ V.last $ _pos vec
-        | otherwise = withError InvalidLength
+        | 3 == vecLength || 4 == vecLength = MI.withValue $ last $ _pos vec
+        | otherwise = MI.withError MI.InvalidLength
         where vecLength = vsize vec
 
-    vget :: BigVector -> Int -> BigScalar
-    vget (BigVector pos) index = pos V.! index
+    vget :: BigVector -> Int -> MI.MathResult BS.BigScalar
+    vget vec@(BigVector pos) index
+        | index < 0 || index >= (vsize vec) = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ pos !! index
 
-    vplus :: BigVector -> BigVector -> MathResult BigVector
-    vplus = _binaryOperation splus
+    vplus :: BigVector -> BigVector -> MI.MathResult BigVector
+    vplus = _binaryOperation BS.splus
 
-    vminus :: BigVector -> BigVector -> MathResult BigVector
-    vminus = _binaryOperation sminus
+    vminus :: BigVector -> BigVector -> MI.MathResult BigVector
+    vminus = _binaryOperation BS.sminus
 
-    vscale :: BigVector -> BigVector -> MathResult BigVector
-    vscale = _binaryOperation smult
+    vscale :: BigVector -> BigVector -> MI.MathResult BigVector
+    vscale = _binaryOperation BS.smult
 
-    _binaryOperation :: BinaryScalarOperation -> BigVector -> BigVector -> MathResult BigVector
+    _binaryOperation :: BS.BinaryScalarOperation -> BigVector -> BigVector -> MI.MathResult BigVector
     _binaryOperation operation left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ vequalSize left right = withError UnequalLength
-        | otherwise = withValue $ BigVector $ V.zipWith operation leftPos rightPos
+        | not $ vequalSize left right = MI.withError MI.UnequalLength
+        | otherwise = MI.withValue $ BigVector $ zipWith operation leftPos rightPos
 
-    smultv :: BigScalar -> BigVector -> MathResult BigVector
+    smultv :: BS.BigScalar -> BigVector -> MI.MathResult BigVector
     smultv left (BigVector rightPos)
-        | isQuaternion left = withError InvalidType
-        | otherwise = withValue $ BigVector $ V.map (smult left) rightPos
+        | BS.isQuaternion left = MI.withError MI.InvalidType
+        | otherwise = MI.withValue $ BigVector $ map (BS.smult left) rightPos
 
-    vmults :: BigVector -> BigScalar -> MathResult BigVector
+    vmults :: BigVector -> BS.BigScalar -> MI.MathResult BigVector
     vmults = flip smultv
 
-    vdot :: BigVector -> BigVector -> MathResult BigScalar
-    vdot left right = unResolve scaleResult _vsum
+    vdot :: BigVector -> BigVector -> MI.MathResult BS.BigScalar
+    vdot left right = MI.unResolve scaleResult _vsum
         where scaleResult = vscale left right
 
-    vcross :: BigVector -> BigVector -> MathResult BigVector
+    vcross :: BigVector -> BigVector -> MI.MathResult BigVector
     vcross left right
-        | 3 == (vsize left) && 3 == (vsize right) = withValue $ BigVector $ V.fromList [resultXPos, resultYPos, resultZPos]
-        | otherwise = withError InvalidLength
-        where leftXPos = value $ xPos left
-              leftYPos = value $ yPos left
-              leftZPos = value $ zPos left
-              rightXPos = value $ xPos right
-              rightYPos = value $ yPos right
-              rightZPos = value $ zPos right
-              resultXPos = sminus (smult leftYPos rightZPos) (smult leftZPos rightYPos)
-              resultYPos = sminus (smult leftZPos rightXPos) (smult leftXPos rightZPos)
-              resultZPos = sminus (smult leftXPos rightYPos) (smult leftYPos rightXPos)
+        | 3 == (vsize left) && 3 == (vsize right) = vlist [resultXPos, resultYPos, resultZPos]
+        | otherwise = MI.withError MI.InvalidLength
+        where leftXPos = MI.value $ xPos left
+              leftYPos = MI.value $ yPos left
+              leftZPos = MI.value $ zPos left
+              rightXPos = MI.value $ xPos right
+              rightYPos = MI.value $ yPos right
+              rightZPos = MI.value $ zPos right
+              resultXPos = BS.sminus (BS.smult leftYPos rightZPos) (BS.smult leftZPos rightYPos)
+              resultYPos = BS.sminus (BS.smult leftZPos rightXPos) (BS.smult leftXPos rightZPos)
+              resultZPos = BS.sminus (BS.smult leftXPos rightYPos) (BS.smult leftYPos rightXPos)
 
-    vdivs :: BigVector -> BigScalar -> MathResult BigVector
+    vdivs :: BigVector -> BS.BigScalar -> MI.MathResult BigVector
     vdivs left right
-        | zero == right = withError DivideByZero
+        | BS.zero == right = MI.withError MI.DivideByZero
         | otherwise = vmults left rightInv
-        where rightInv = value $ sinv right
+        where rightInv = MI.value $ BS.sinv right
 
     vneg :: BigVector -> BigVector
-    vneg = value . (smultv negOne)
+    vneg = MI.value . (smultv BS.negOne)
 
-    vabs :: BigVector -> BigScalar
-    vabs vec = ssqrt $ value $ vdot vec vec
+    vabs :: BigVector -> BS.BigScalar
+    vabs vec = BS.ssqrt $ MI.value $ vdot vec vec
 
-    vnorm :: BigVector -> MathResult BigVector
+    vnorm :: BigVector -> MI.MathResult BigVector
     vnorm vec
-        | isNull vec = withError NullVector
+        | isNull vec = MI.withError MI.NullVector
         | otherwise = vdivs vec (vabs vec)
 
-    vdist :: BigVector -> BigVector -> MathResult BigScalar
+    vdist :: BigVector -> BigVector -> MI.MathResult BS.BigScalar
     vdist left right
-        | isFailure subtResult = convert subtResult
-        | otherwise = withValue $ ssqrt $ _sum $ V.map (value . (flip spow) two) (_pos subtValue)
+        | MI.isFailure subtResult = MI.convert subtResult
+        | otherwise = MI.withValue $ BS.ssqrt $ _sum $ map square (_pos subtValue)
         where subtResult = vminus left right
-              subtValue = value subtResult
+              subtValue = MI.value subtResult
+              square = MI.value . (flip BS.spow) BS.two
 
-    _vsum :: BigVector -> BigScalar
+    _vsum :: BigVector -> BS.BigScalar
     _vsum (BigVector pos) = _sum pos
 
-    _sum :: V.Vector BigScalar -> BigScalar
-    _sum = V.foldr splus zero
+    _sum :: [BS.BigScalar] -> BS.BigScalar
+    _sum = foldr BS.splus BS.zero
 
-    vangle :: BigVector -> BigVector -> MathResult BigScalar
+    vangle :: BigVector -> BigVector -> MI.MathResult BS.BigScalar
     vangle left right
-        | not $ vequalSize left right = withError UnequalLength
-        | (isNull left) || (isNull right) = withError NullVector
-        | otherwise = sacos $ value $ sdiv (value $ vdot left right) (smult (vabs left) (vabs right))
+        | not $ vequalSize left right = MI.withError MI.UnequalLength
+        | (isNull left) || (isNull right) = MI.withError MI.NullVector
+        | otherwise = BS.sacos $ MI.value $ BS.sdiv (MI.value $ vdot left right) (BS.smult (vabs left) (vabs right))
+
+    asList :: BigVector -> [BS.BigScalar]
+    asList (BigVector pos) = pos
+    
+    asVector :: BigVector -> V.Vector BS.BigScalar
+    asVector (BigVector pos) = V.fromList pos

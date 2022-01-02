@@ -33,6 +33,17 @@
   (major1) == 1 && (major2) == 4 && (minor) <= 0)
 #endif /* MIN_VERSION_hashable */
 
+/* package hashtables-1.3 */
+#ifndef VERSION_hashtables
+#define VERSION_hashtables "1.3"
+#endif /* VERSION_hashtables */
+#ifndef MIN_VERSION_hashtables
+#define MIN_VERSION_hashtables(major1,major2,minor) (\
+  (major1) <  1 || \
+  (major1) == 1 && (major2) <  3 || \
+  (major1) == 1 && (major2) == 3 && (minor) <= 0)
+#endif /* MIN_VERSION_hashtables */
+
 /* package numbers-3000.2.0.2 */
 #ifndef VERSION_numbers
 #define VERSION_numbers "3000.2.0.2"

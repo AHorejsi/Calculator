@@ -3,7 +3,7 @@ cabal-version: 2.4
 -- http://haskell.org/cabal/users-guide/
 
 name: Calculator
-version: 0.1.0.0
+version: 1.0.0.0
 -- synopsis:
 -- description:
 -- bug-reports:
@@ -18,8 +18,8 @@ extra-source-files: CHANGELOG.md
 executable Calculator
   main-is: Main.hs
   other-modules:
-    MathInfo,
     Settings,
+    MathInfo,
     BigScalar,
     BigVector,
     BigList,

@@ -2,26 +2,21 @@ import MathInfo
 import BigScalar
 import BigVector
 import BigList
+import BigMatrix
+import Data.Char
+import Data.Bits
 
-import Data.Number.Fixed
+mat1 :: BigMatrix
+mat1 = mlist [[integer 1, integer 2, integer 3],[integer 4, integer 5, integer 6]]
 
-num1 :: Fixed Prec50
-num1 = -1
+mat2 :: BigMatrix
+mat2 = mlist [[integer 1, integer 2],[integer 3, integer 4],[integer 5, integer 6]]
+
+mat3 :: BigMatrix
+mat3 = mlist [[integer 1, integer 2, integer 3],[integer 4, integer 5, integer 6], [integer 7, integer 8, integer 9]]
 
 val1 :: BigScalar
-val1 = real $ -1
-
-val2 :: BigScalar
-val2 = complex 4.5 (-0.9)
-
-val3 :: BigScalar
-val3 = quaternion 7.9 6.1 0.4 8.3
-
-vec1 :: BigVector
-vec1 = value $ vlist [real 1, complex 2 6, real 3, real 4, complex 3.3 5, real 1]
-
-list1 :: BigList
-list1 = llist [real 1, real 2, real 1, real 1, real 2, real 3, real 2, complex 1 2, complex 1 2, complex 1 2, complex 1 2, complex 1 2]
+val1 = integer 5000
 
 main :: IO ()
-main = putStrLn $ "\n" ++ (show $ sasin val1) ++ "\n"
+main = putStrLn $ "\n" ++ (toBinary val1)  ++ "\n"
