@@ -9,6 +9,7 @@ module MathInfo (
         InvalidIndex,
         NotMultipliableMatrices,
         NonsquareMatrix,
+        ZeroDeterminant,
         NullVector,
         InvalidLength,
         ZeroLength,
@@ -57,8 +58,9 @@ module MathInfo (
         LogarithmBaseOfZero |
         InvalidIndex |
         NullVector |
-        NotMultipliableMatrices |
         NonsquareMatrix |
+        NotMultipliableMatrices |
+        ZeroDeterminant |
         InvalidLength |
         ZeroLength |
         UnequalLength |
@@ -77,10 +79,10 @@ module MathInfo (
         show (Success val) = TP.printf "Success{ %s }" (show val)
         show (Failure errors) = TP.printf "Failure{ %s }" (_str $ HS.toList errors)
 
-    type UnaryOperation a b = (a -> b)
-    type ErrableUnaryOperation a b  = (a -> MathResult b)
-    type BinaryOperation a b c  = (a -> b -> c)
-    type ErrableBinaryOperation a b c = (a -> b -> MathResult c)
+    type UnaryOperation a b = a -> b
+    type ErrableUnaryOperation a b = a -> MathResult b
+    type BinaryOperation a b c = a -> b -> c
+    type ErrableBinaryOperation a b c = a -> b -> MathResult c
 
     instance H.Hashable MathError where
         hashWithSalt salt value = H.hashWithSalt salt (fromEnum value)

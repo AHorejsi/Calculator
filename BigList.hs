@@ -38,12 +38,14 @@ module BigList (
     lcumprod,
     lmean,
     lgmean,
+    lhmean,
     lmedian,
     lrange,
     lmidrange,
     lmode,
     lsortAsc,
     lsortDesc,
+    lsub,
     (==),
     (/=),
     show
@@ -82,7 +84,7 @@ module BigList (
     lvec = BigList
 
     llist :: [BS.BigScalar] -> BigList
-    llist = BigList . V.fromList
+    llist = lvec . V.fromList
 
     lrepeat :: BS.BigScalar -> Int -> BigList
     lrepeat scalar count = _pad count scalar lempty
@@ -258,6 +260,22 @@ module BigList (
         where listSize = lsize list
               prodValue = lprod list
 
+    lhmean :: BigList -> MI.MathResult BS.BigScalar
+    lhmean list@(BigList vals)
+        | 0 == listSize = MI.withError MI.ZeroLength
+        | MI.isFailure invList = MI.convert invList
+        | otherwise = BS.sdiv (BS.integral listSize) invListSum
+        where listSize = lsize list
+              invList = _inverseList list
+              invListSum = lsum $ MI.value invList
+              
+    _inverseList :: BigList -> MI.MathResult BigList
+    _inverseList (BigList vals)
+        | M.isJust result = MI.withError MI.DivideByZero
+        | otherwise = MI.withValue $ lvec $ V.map MI.value invList
+        where invList = V.map BS.sinv vals
+              result = V.find MI.isFailure invList
+
     lmedian :: BigList -> MI.MathResult BS.BigScalar
     lmedian list@(BigList vals)
         | 0 == listSize = MI.withError MI.ZeroLength
@@ -309,15 +327,38 @@ module BigList (
               mappedVal = HM.lookup headVal counter
 
     lsortAsc :: BigList -> MI.MathResult BigList
-    lsortAsc (BigList vals) = _lsort BS.sLessEqual vals
+    lsortAsc (BigList vals) = _lmergeSort BS.sLessEqual vals
 
     lsortDesc :: BigList -> MI.MathResult BigList
-    lsortDesc (BigList vals) = _lsort BS.sGreaterEqual vals
+    lsortDesc (BigList vals) = _lmergeSort BS.sGreaterEqual vals
 
-    _lsort :: (BS.BigScalar -> BS.BigScalar -> MI.MathResult Bool) -> V.Vector BS.BigScalar -> MI.MathResult BigList
-    _lsort ordFunc vals
-        | _containsNonreal vals = MI.withError MI.InvalidType
-        | otherwise = MI.withValue $ lvec $ _lsortHelper (\left right -> MI.value $ ordFunc left right) vals
+    _lmergeSort :: BS.ErrableComparisonOperation -> V.Vector BS.BigScalar -> MI.MathResult BigList
+    _lmergeSort ordFunc vals
+        | _containsNonreal vals = MI.withError MI.NoncomparableType
+        | otherwise = MI.withValue $ lvec $ _lmergeSortHelper (\left right -> MI.value $ ordFunc left right) vals
 
-    _lsortHelper :: (BS.BigScalar -> BS.BigScalar -> Bool) -> V.Vector BS.BigScalar -> V.Vector BS.BigScalar
-    _lsortHelper ordFunc vals = V.empty
+    _lmergeSortHelper :: BS.ComparisonOperation -> V.Vector BS.BigScalar -> V.Vector BS.BigScalar
+    _lmergeSortHelper ordFunc vals
+        | vecLength < 2 = vals
+        | otherwise = _merge ordFunc (_lmergeSortHelper ordFunc leftVec) (_lmergeSortHelper ordFunc rightVec)
+        where vecLength = V.length vals
+              halfLength = div vecLength 2
+              leftVec = V.take halfLength vals
+              rightVec = V.drop halfLength vals
+
+    _merge :: BS.ComparisonOperation -> V.Vector BS.BigScalar -> V.Vector BS.BigScalar -> V.Vector BS.BigScalar
+    _merge ordFunc leftVec rightVec
+        | 0 == (V.length leftVec) = rightVec
+        | 0 == (V.length rightVec) = leftVec
+        | ordFunc leftHead rightHead = V.cons leftHead (_merge ordFunc leftRest rightVec)
+        | otherwise = V.cons rightHead (_merge ordFunc leftVec rightRest)
+        where leftHead = V.head leftVec
+              rightHead = V.head rightVec
+              leftRest = V.tail leftVec
+              rightRest = V.tail rightVec
+
+    lsub :: BigList -> Int -> Int -> MI.MathResult BigList
+    lsub list@(BigList vals) lowIndex highIndex
+        | lowIndex < 0 || lowIndex >= listSize || highIndex < 0 || highIndex >= listSize || lowIndex > highIndex = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ lvec $ V.slice lowIndex (highIndex - lowIndex) vals
+        where listSize = lsize list

@@ -6,6 +6,8 @@ module BigScalar (
     ErrableUnaryScalarOperation,
     BinaryScalarOperation,
     ErrableBinaryScalarOperation,
+    ComparisonOperation,
+    ErrableComparisonOperation,
     integral,
     integer,
     real,
@@ -40,6 +42,14 @@ module BigScalar (
     sminus,
     smult,
     sdiv,
+    sintDiv,
+    smod,
+    srem,
+    sand,
+    sor,
+    sxor,
+    sgcd,
+    slcm,
     sneg,
     sabs,
     spow,
@@ -86,26 +96,27 @@ module BigScalar (
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
     import qualified Data.Char as C
+    import qualified Data.Bits as B
     import qualified Data.Hashable as H
     import qualified Data.HashSet as HS
     import qualified Data.Number.Fixed as F
     import qualified MathInfo as MI
     
-    type BigInt = Integer
-    type BigFloat = F.Fixed F.Prec50
+    type BigInt_ = Integer
+    type BigFloat_ = F.Fixed F.Prec50
 
     data BigScalar = BigInteger {
-        _int :: BigInt
+        _int :: BigInt_
     } | BigReal {
-        _rreal :: BigFloat
+        _rreal :: BigFloat_
     } | BigComplex {
-        _creal :: BigFloat,
-        _cimag0 :: BigFloat
+        _creal :: BigFloat_,
+        _cimag0 :: BigFloat_
     } | BigQuaternion {
-        _qreal :: BigFloat,
-        _qimag0 :: BigFloat,
-        _qimag1 :: BigFloat,
-        _qimag2 :: BigFloat
+        _qreal :: BigFloat_,
+        _qimag0 :: BigFloat_,
+        _qimag1 :: BigFloat_,
+        _qimag2 :: BigFloat_
     } deriving (G.Generic, Eq)
 
     instance H.Hashable BigScalar where
@@ -124,25 +135,27 @@ module BigScalar (
     type ErrableUnaryScalarOperation = MI.ErrableUnaryOperation BigScalar BigScalar
     type BinaryScalarOperation = MI.BinaryOperation BigScalar BigScalar BigScalar
     type ErrableBinaryScalarOperation = MI.ErrableBinaryOperation BigScalar BigScalar BigScalar
+    type ComparisonOperation = MI.BinaryOperation BigScalar BigScalar Bool
+    type ErrableComparisonOperation = MI.ErrableBinaryOperation BigScalar BigScalar Bool
 
     integral :: (Integral a) => a -> BigScalar
     integral val = integer $ toInteger val
 
-    integer :: BigInt -> BigScalar
+    integer :: BigInt_ -> BigScalar
     integer = BigInteger
 
-    real :: BigFloat -> BigScalar
+    real :: BigFloat_ -> BigScalar
     real realVal
-        | intPart == realVal = BigInteger floorVal
+        | intPart == realVal = integer floorVal
         | otherwise = BigReal realVal
         where floorVal = floor realVal
               intPart = fromIntegral floorVal
 
-    complex :: BigFloat -> BigFloat -> BigScalar
+    complex :: BigFloat_ -> BigFloat_ -> BigScalar
     complex realVal 0 = real realVal
     complex realVal imag0Val = BigComplex realVal imag0Val
 
-    quaternion :: BigFloat -> BigFloat -> BigFloat -> BigFloat -> BigScalar
+    quaternion :: BigFloat_ -> BigFloat_ -> BigFloat_ -> BigFloat_ -> BigScalar
     quaternion realVal 0 0 0 = real realVal
     quaternion realVal imag0Val 0 0 = complex realVal imag0Val
     quaternion realVal imag0Val imag1Val imag2Val = BigQuaternion realVal imag0Val imag1Val imag2Val
@@ -315,7 +328,7 @@ module BigScalar (
     sdiv (BigReal leftReal) (BigReal rightReal) = MI.withValue $ real $ leftReal / rightReal
     sdiv left right@BigReal{} = MI.withValue $ smult left (MI.value $ sinv right)
     sdiv left right@BigComplex{} = sdiv numerator denominator
-        where rightConj =  sconj right
+        where rightConj = sconj right
               numerator = smult left rightConj
               denominator = smult right rightConj
     sdiv (BigReal leftReal) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = MI.withValue $ quaternion realResult imag0Result imag1Result imag2Result
@@ -337,7 +350,7 @@ module BigScalar (
               imag1Result = (leftReal * rightImag1 + leftImag0 * rightImag2 - leftImag1 * rightReal - leftImag2 * rightImag0) / denominator
               imag2Result = (leftReal * rightImag2 - leftImag0 * rightImag1 + leftImag1 * rightImag0 - leftImag2 * rightReal) / denominator
 
-    _binaryIntOperation :: BigScalar -> BigScalar -> (BigInt -> BigInt -> BigInt) -> MI.MathResult BigScalar
+    _binaryIntOperation :: BigScalar -> BigScalar -> (BigInt_ -> BigInt_ -> BigInt_) -> MI.MathResult BigScalar
     _binaryIntOperation (BigInteger leftInt) (BigInteger rightInt) operation = MI.withValue $ integer $ operation leftInt rightInt
     _binaryIntOperation _ _ _ = MI.withError MI.InvalidType
 
@@ -352,6 +365,25 @@ module BigScalar (
     srem :: BigScalar -> BigScalar -> MI.MathResult BigScalar
     srem _ (BigInteger 0) = MI.withError MI.DivideByZero
     srem left right = _binaryIntOperation left right rem
+
+    sand :: BigScalar -> BigScalar -> MI.MathResult BigScalar
+    sand left right = _binaryIntOperation left right (B..&.)
+
+    sor :: BigScalar -> BigScalar -> MI.MathResult BigScalar
+    sor left right = _binaryIntOperation left right (B..|.)
+
+    sxor :: BigScalar -> BigScalar -> MI.MathResult BigScalar
+    sxor left right = _binaryIntOperation left right B.xor
+
+    sshift :: BigScalar -> Int -> MI.MathResult BigScalar
+    sshift val@BigInteger{} amount = MI.withValue $ integer $ B.shift (_int val) amount
+    sshift _ _ = MI.withError MI.InvalidType
+
+    sgcd :: BigScalar -> BigScalar -> MI.MathResult BigScalar
+    sgcd left right = _binaryIntOperation left right gcd
+
+    slcm :: BigScalar -> BigScalar -> MI.MathResult BigScalar
+    slcm left right = _binaryIntOperation left right lcm
 
     spow :: BigScalar -> BigScalar -> MI.MathResult BigScalar
     spow (BigInteger 0) (BigInteger 0) = MI.withError MI.ZeroToPowerOfZero
@@ -385,7 +417,7 @@ module BigScalar (
     snorm val = sdiv val (sabs val)
 
     sarg :: BigScalar -> MI.MathResult BigScalar
-    sarg BigInteger{} = MI.withValue zero
+    sarg val@BigInteger{} = sarg $ _forceReal val
     sarg BigReal{} = MI.withValue zero
     sarg (BigComplex 0 imag0Val)
         | imag0Val < 0 = sdiv (sneg spi) two
@@ -407,7 +439,7 @@ module BigScalar (
     slog (BigInteger 0) = MI.withError MI.LogarithmOfZero
     slog val@BigInteger{} = slog $ _forceReal val
     slog (BigReal realVal)
-        | realVal < 0 = MI.withValue $ complex (log $ abs realVal) pi
+        | realVal < 0 = MI.withValue $ complex (log $ -realVal) pi
         | otherwise = MI.withValue $ real $ log realVal
     slog com@BigComplex{} = MI.withValue $ complex (log $ _rreal $ sabs com) (_rreal $ MI.value $ sarg com)
     slog quat@(BigQuaternion realVal imag0Val imag1Val imag2Val) = MI.withValue $ splus (MI.value $ slog b) (smult (MI.value $ snorm a) (MI.value $ sacos $ MI.value $ sdiv (real realVal) b))
@@ -546,11 +578,11 @@ module BigScalar (
 
     sLessEqual :: BigScalar -> BigScalar -> MI.MathResult Bool
     sLessEqual = _checkCompare set
-        where set = HS.insert EQ (HS.singleton LT)
+        where set = HS.fromList [EQ, LT]
 
     sGreaterEqual :: BigScalar -> BigScalar -> MI.MathResult Bool
     sGreaterEqual = _checkCompare set
-        where set = HS.insert EQ (HS.singleton GT)
+        where set = HS.fromList [EQ, GT]
 
     _checkCompare :: HS.HashSet Ordering -> BigScalar -> BigScalar -> MI.MathResult Bool
     _checkCompare set left right
@@ -567,6 +599,14 @@ module BigScalar (
     sfloor val@BigInteger{} = MI.withValue val
     sfloor (BigReal realVal) = MI.withValue $ integer $ floor realVal
     sfloor _ = MI.withError MI.InvalidType
+
+    sEven :: BigScalar -> Bool
+    sEven val@BigInteger{} = zero == (MI.value $ smod val two)
+    sEven _ = False
+
+    sOdd :: BigScalar -> Bool
+    sOdd val@BigInteger{} = one == (MI.value $ smod val two)
+    sOdd _ = False
 
     toBinary :: BigScalar -> String
     toBinary (BigInteger 0) = "0"

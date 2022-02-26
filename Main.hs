@@ -6,17 +6,20 @@ import BigMatrix
 import Data.Char
 import Data.Bits
 
-mat1 :: BigMatrix
-mat1 = mlist [[integer 1, integer 2, integer 3],[integer 4, integer 5, integer 6]]
+list1 :: BigList
+list1 = llist [integer 1, integer 2, integer 3, integer 3, integer 4]
 
-mat2 :: BigMatrix
-mat2 = mlist [[integer 1, integer 2],[integer 3, integer 4],[integer 5, integer 6]]
-
-mat3 :: BigMatrix
-mat3 = mlist [[integer 1, integer 2, integer 3],[integer 4, integer 5, integer 6], [integer 7, integer 8, integer 9]]
+list2 :: BigList
+list2 = llist [integer 2, integer 3, integer 4, integer 3]
 
 val1 :: BigScalar
-val1 = integer 5000
+val1 = integer $ -1501
+
+val2 :: BigScalar
+val2 = integer 1000
+
+mat1 :: BigMatrix
+mat1 = mlist [[real $ -6.5, integer 9, real 1.7],[real $ -7.8, real 66.5, real 4.07],[real $ -8.99, real 4.5, real $ -0.8]]
 
 main :: IO ()
-main = putStrLn $ "\n" ++ (toBinary val1)  ++ "\n"
+main = putStrLn $ "\n" ++ (show $ minv mat1) ++ "\n"

@@ -2,6 +2,15 @@
 
 module MathEntity (
     MathEntity,
+    UnaryEntityOperation,
+    ErrableUnaryEntityOperation,
+    BinaryEntityOperation,
+    ErrableBinaryEntityOperation,
+    scalarEntity,
+    vectorEntity,
+    listEntity,
+    matrixEntity,
+    boolEntity,
     isScalar,
     isVector,
     isList,
@@ -37,6 +46,26 @@ module MathEntity (
 
     instance Show MathEntity where
         show entity = "MathEntity:\n" ++ (show entity)
+
+    type UnaryEntityOperation = MI.UnaryOperation MathEntity MathEntity
+    type ErrableUnaryEntityOperation = MI.ErrableUnaryOperation MathEntity MathEntity
+    type BinaryEntityOperation = MI.BinaryOperation MathEntity MathEntity MathEntity
+    type ErrableBinaryEntityOperation = MI.ErrableBinaryOperation MathEntity MathEntity MathEntity
+
+    scalarEntity :: BS.BigScalar -> MathEntity
+    scalarEntity = ScalarEntity
+
+    vectorEntity :: BV.BigVector -> MathEntity
+    vectorEntity = VectorEntity
+
+    listEntity :: BL.BigList -> MathEntity
+    listEntity = ListEntity
+
+    matrixEntity :: BM.BigMatrix -> MathEntity
+    matrixEntity = MatrixEntity
+
+    boolEntity :: Bool -> MathEntity
+    boolEntity = BoolEntity
 
     isScalar :: MathEntity -> Bool
     isScalar ScalarEntity{} = True
@@ -78,12 +107,12 @@ module MathEntity (
 
     entityMinus :: MathEntity -> MathEntity -> MI.MathResult MathEntity
     entityMinus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.withValue $ ScalarEntity $ BS.sminus leftScalar rightScalar
-    entityMinus (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.splusl leftScalar rightList
+    entityMinus (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.sminusl leftScalar rightList
     entityMinus (VectorEntity leftVec) (VectorEntity rightVec) = _entity result VectorEntity
         where result = BV.vminus leftVec rightVec
-    entityMinus (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lpluss leftList rightScalar
+    entityMinus (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lminuss leftList rightScalar
     entityMinus (ListEntity leftList) (ListEntity rightList) = _entity result ListEntity
-        where result = BL.lplus leftList rightList
+        where result = BL.lminus leftList rightList
     entityMinus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = _entity result MatrixEntity
         where result = BM.mminus leftMatrix rightMatrix
     entityMinus _ _ = MI.withError MI.IncompatibleTypes
