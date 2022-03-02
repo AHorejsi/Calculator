@@ -22,4 +22,4 @@ mat1 :: BigMatrix
 mat1 = mlist [[real $ -6.5, integer 9, real 1.7],[real $ -7.8, real 66.5, real 4.07],[real $ -8.99, real 4.5, real $ -0.8]]
 
 main :: IO ()
-main = putStrLn $ "\n" ++ (show $ lIsSorted list1) ++ "\n"
+main = putStrLn $ "\n" ++ (show $ swapRows mat1 0 2) ++ "\n"

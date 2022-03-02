@@ -23,6 +23,9 @@ module BigMatrix (
     minv,
     mtranspose,
     msub,
+    addRow,
+    multRow,
+    swapRows,
     (==),
     (/=),
     show
@@ -233,7 +236,7 @@ module BigMatrix (
               next = _mtransposeHelper matrix nextRowIndex nextColIndex
 
     msub :: BigMatrix -> Int -> Int -> MI.MathResult BigMatrix
-    msub matrix@(BigMatrix table rows cols) rowIndex colIndex
+    msub (BigMatrix table rows cols) rowIndex colIndex
         | rowIndex < 0 || rowIndex >= rows || colIndex < 0 || colIndex >= cols = MI.withError MI.InvalidIndex
         | otherwise = MI.withValue $ BigMatrix (_msubHelper table rowIndex colIndex 0 cols) (rows - 1) (cols - 1)
 
@@ -247,3 +250,45 @@ module BigMatrix (
               newRowEnd = V.drop (avoidColIndex + 1) currentRow
               rest = V.drop cols table
               next = _msubHelper rest avoidRowIndex avoidColIndex (rowIndex + 1) cols
+
+    addRow :: BigMatrix -> Int -> Int -> MI.MathResult BigMatrix
+    addRow matrix@(BigMatrix table rows cols) fromRow toRow
+        | fromRow < 0 || fromRow >= rows || toRow < 0 || toRow >= rows || fromRow == toRow = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ BigMatrix resultElems rows cols
+        where startIndexOfFromRow = cols * fromRow
+              startIndexOfToRow = cols * toRow
+              fromRowElems = V.slice startIndexOfFromRow cols table
+              toRowElems = V.slice startIndexOfToRow cols table
+              startElems = V.take startIndexOfToRow table
+              changedElems = V.zipWith BS.splus fromRowElems toRowElems
+              endElems = V.drop (startIndexOfToRow + cols) table
+              resultElems = startElems V.++ changedElems V.++ endElems
+
+    multRow :: BigMatrix -> BS.BigScalar -> Int -> MI.MathResult BigMatrix
+    multRow (BigMatrix table rows cols) value rowIndex
+        | rowIndex < 0 || rowIndex >= rows = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ BigMatrix newTable rows cols
+        where newTable = _multRowHelper table (BS.smult value) rowIndex cols
+
+    _multRowHelper :: V.Vector BS.BigScalar -> BS.UnaryScalarOperation -> Int -> Int -> V.Vector BS.BigScalar
+    _multRowHelper table func rowIndex cols = startElems V.++ changedElems V.++ endElems
+        where tableIndexOfRow = rowIndex * cols
+              startElems = V.take tableIndexOfRow table
+              midElems = V.slice tableIndexOfRow cols table
+              endElems = V.drop (tableIndexOfRow + cols) table
+              changedElems = V.map func midElems
+
+    swapRows :: BigMatrix -> Int -> Int -> MI.MathResult BigMatrix
+    swapRows (BigMatrix table rows cols) rowIndex1 rowIndex2
+        | rowIndex1 < 0 || rowIndex1 >= rows || rowIndex2 < 0 || rowIndex2 >= rows = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ BigMatrix resultElems rows cols
+        where tableRowIndex1 = (min rowIndex1 rowIndex2) * cols
+              tableRowIndex2 = (max rowIndex1 rowIndex2) * cols
+              midStartTableIndex = tableRowIndex1 + cols
+              row1Elems = V.slice tableRowIndex1 cols table
+              row2Elems = V.slice tableRowIndex2 cols table
+              startElems = V.take tableRowIndex1 table
+              midElems = V.slice midStartTableIndex (tableRowIndex2 - midStartTableIndex) table
+              endElems = V.drop (tableRowIndex2 + cols) table
+              resultElems = startElems V.++ row2Elems V.++ midElems V.++ row1Elems V.++ endElems
+              
