@@ -1,6 +1,6 @@
 name:                Calculator
 version:             0.1.0.0
-github:              "githubuser/Calculator"
+github:              "AHorejsi/Calculator"
 license:             BSD3
 author:              "Author name here"
 maintainer:          "example@example.com"
@@ -32,13 +32,14 @@ library:
   source-dirs: src
 
 executables:
-  Calculator-exe:
+  Calculator:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -O2
     dependencies:
     - Calculator
 
@@ -50,5 +51,6 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -O2
     dependencies:
     - Calculator

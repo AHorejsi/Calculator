@@ -77,13 +77,11 @@ module BigScalar (
     scompare,
     sceil,
     sfloor,
+    sround,
     sLess,
     sGreater,
     sLessEqual,
     sGreaterEqual,
-    toBinary,
-    toHex,
-    toOctal,
     (==),
     (/=),
     H.hash,
@@ -584,6 +582,9 @@ module BigScalar (
     sfloor (BigReal realVal) = MI.withValue $ integer $ floor realVal
     sfloor _ = MI.withError MI.InvalidType
 
+    sround :: BigScalar -> MI.MathResult BigScalar
+    sround val = sfloor $ splus val half
+
     sEven :: BigScalar -> Bool
     sEven val@BigInteger{} = zero == (MI.value $ smod val two)
     sEven _ = False
@@ -591,24 +592,3 @@ module BigScalar (
     sOdd :: BigScalar -> Bool
     sOdd val@BigInteger{} = one == (MI.value $ smod val two)
     sOdd _ = False
-
-    toBinary :: BigScalar -> String
-    toBinary (BigInteger 0) = "0"
-    toBinary val@BigInteger{} = _convertBase two val
-
-    toHex :: BigScalar -> String
-    toHex (BigInteger 0) = "0"
-    toHex val@BigInteger{} = _convertBase sixteen val
-
-    toOctal :: BigScalar -> String
-    toOctal (BigInteger 0) = "0"
-    toOctal val@BigInteger{} = _convertBase eight val
-
-    _convertBase :: BigScalar -> BigScalar -> String
-    _convertBase base (BigInteger 0) = ""
-    _convertBase base (BigInteger 1) = "1"
-    _convertBase base val = (_convertBase base divValue) ++ [char]
-        where divValue = MI.value $ sIntDiv val base
-              modValue = MI.value $ smod val base
-              char = C.toUpper $ C.intToDigit $ fromIntegral $ _int modValue
-

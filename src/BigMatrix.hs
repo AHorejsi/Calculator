@@ -26,6 +26,9 @@ module BigMatrix (
     addRow,
     multRow,
     swapRows,
+    addCol,
+    multCol,
+    swapCols,
     (==),
     (/=),
     show
@@ -127,8 +130,9 @@ module BigMatrix (
     _mmultHelper :: BigMatrix -> BigMatrix -> Int -> Int -> Int -> Int -> V.Vector BS.BigScalar
     _mmultHelper left right rowIndex colIndex leftRows rightCols
         | nextRowIndex == leftRows = V.singleton elem
-        | otherwise = V.cons elem (_mmultHelper left right nextRowIndex nextColIndex leftRows rightCols)
+        | otherwise = V.cons elem next
         where elem = _mmultTraverse 0 rowIndex colIndex leftRows left right
+              next = _mmultHelper left right nextRowIndex nextColIndex leftRows rightCols
               (nextRowIndex, nextColIndex) = _rowTraversal rowIndex colIndex rightCols
 
     _mmultTraverse :: Int -> Int -> Int -> Int -> BigMatrix -> BigMatrix -> BS.BigScalar
@@ -168,12 +172,12 @@ module BigMatrix (
 
     _mdetHelper1 :: BigMatrix -> BS.BigScalar
     _mdetHelper1 matrix@(BigMatrix _ rows _)
-        | 2 == rows = BS.sminus (BS.smult val00 val11) (BS.smult val01 val10)
+        | 2 == rows = BS.sminus (BS.smult a d) (BS.smult b c)
         | otherwise = _mdetHelper2 matrix 0
-        where val00 = MI.value $ mget matrix 0 0
-              val01 = MI.value $ mget matrix 0 1
-              val10 = MI.value $ mget matrix 1 0
-              val11 = MI.value $ mget matrix 1 1
+        where a = MI.value $ mget matrix 0 0
+              b = MI.value $ mget matrix 0 1
+              c = MI.value $ mget matrix 1 0
+              d = MI.value $ mget matrix 1 1
 
     _mdetHelper2 :: BigMatrix -> Int -> BS.BigScalar
     _mdetHelper2 matrix@(BigMatrix _ _ cols) colIndex
@@ -202,7 +206,7 @@ module BigMatrix (
 
     _mcofactorsHelper :: V.Vector BS.BigScalar -> Bool -> V.Vector BS.BigScalar
     _mcofactorsHelper table sign
-        | 0 == (V.length table) = V.empty
+        | V.null table = V.empty
         | otherwise = V.cons elem next
         where val = V.head table
               elem = if sign then BS.sneg val else val
@@ -230,8 +234,9 @@ module BigMatrix (
     _mtransposeHelper matrix@(BigMatrix _ rows cols) rowIndex colIndex
         | nextColIndex == cols = V.singleton elem
         | otherwise = V.cons elem next
-        where nextRowIndex = if rowIndex == rows - 1 then 0 else rowIndex + 1
-              nextColIndex = if rowIndex == rows - 1 then colIndex + 1 else colIndex
+        where lastRowIndex = rows - 1
+              nextRowIndex = if rowIndex == lastRowIndex then 0 else rowIndex + 1
+              nextColIndex = if rowIndex == lastRowIndex then colIndex + 1 else colIndex
               elem = MI.value $ mget matrix rowIndex colIndex
               next = _mtransposeHelper matrix nextRowIndex nextColIndex
 
@@ -279,8 +284,9 @@ module BigMatrix (
               changedElems = V.map func midElems
 
     swapRows :: BigMatrix -> Int -> Int -> MI.MathResult BigMatrix
-    swapRows (BigMatrix table rows cols) rowIndex1 rowIndex2
+    swapRows matrix@(BigMatrix table rows cols) rowIndex1 rowIndex2
         | rowIndex1 < 0 || rowIndex1 >= rows || rowIndex2 < 0 || rowIndex2 >= rows = MI.withError MI.InvalidIndex
+        | rowIndex1 == rowIndex2 = MI.withValue matrix
         | otherwise = MI.withValue $ BigMatrix resultElems rows cols
         where tableRowIndex1 = (min rowIndex1 rowIndex2) * cols
               tableRowIndex2 = (max rowIndex1 rowIndex2) * cols
@@ -291,4 +297,60 @@ module BigMatrix (
               midElems = V.slice midStartTableIndex (tableRowIndex2 - midStartTableIndex) table
               endElems = V.drop (tableRowIndex2 + cols) table
               resultElems = startElems V.++ row2Elems V.++ midElems V.++ row1Elems V.++ endElems
-              
+
+    addCol :: BigMatrix -> Int -> Int -> MI.MathResult BigMatrix
+    addCol (BigMatrix table rows cols) fromCol toCol
+        | fromCol < 0 || fromCol >= cols || toCol < 0 || toCol >= cols = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ BigMatrix resultElems rows cols
+        where resultElems = _addColHelper table cols fromCol toCol
+
+    _addColHelper :: V.Vector BS.BigScalar -> Int -> Int -> Int -> V.Vector BS.BigScalar
+    _addColHelper table cols fromCol toCol
+        | V.null table = V.empty
+        | otherwise = resultRow V.++ restResultRows
+        where (row, restRows) = V.splitAt cols table
+              changedColElem = V.singleton $ BS.splus (row V.! fromCol) (row V.! toCol)
+              startElems = V.take toCol row
+              endElems = V.drop (toCol + 1) row
+              resultRow = startElems V.++ changedColElem V.++ endElems
+              restResultRows = _addColHelper restRows cols fromCol toCol
+
+    multCol :: BigMatrix -> BS.BigScalar -> Int -> MI.MathResult BigMatrix
+    multCol matrix@(BigMatrix table rows cols) value colIndex
+        | colIndex < 0 || colIndex >= cols = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ BigMatrix resultElems rows cols
+        where resultElems = _multColHelper table cols value colIndex
+
+    _multColHelper :: V.Vector BS.BigScalar -> Int -> BS.BigScalar -> Int -> V.Vector BS.BigScalar
+    _multColHelper table cols value colIndex
+        | V.null table = V.empty
+        | otherwise = resultRow V.++ restResultRows
+        where (row, restRows) = V.splitAt cols table
+              startElems = V.take colIndex row
+              colElem = V.head $ V.drop colIndex row
+              endElems = V.drop (colIndex + 1) row
+              changedColElem = V.singleton $ BS.smult value colElem
+              resultRow = startElems V.++ changedColElem V.++ endElems
+              restResultRows = _multColHelper restRows cols value colIndex
+
+    swapCols :: BigMatrix -> Int -> Int -> MI.MathResult BigMatrix
+    swapCols matrix@(BigMatrix table rows cols) colIndex1 colIndex2
+        | colIndex1 < 0 || colIndex2 >= cols || colIndex2 < 0 || colIndex2 >= cols = MI.withError MI.InvalidIndex
+        | colIndex1 == colIndex2 = MI.withValue matrix
+        | otherwise = MI.withValue $ BigMatrix resultElems rows cols
+        where resultElems = _swapColsHelper table cols colIndex1 colIndex2
+
+    _swapColsHelper :: V.Vector BS.BigScalar -> Int -> Int -> Int -> V.Vector BS.BigScalar
+    _swapColsHelper table cols colIndex1 colIndex2
+        | V.null table = V.empty
+        | otherwise = resultRow V.++ restResultRows
+        where (row, restRows) = V.splitAt cols table
+              minColIndex = min colIndex1 colIndex2
+              maxColIndex = max colIndex1 colIndex2
+              startElems = V.take minColIndex row
+              col1Elem = V.slice minColIndex 1 row
+              midElems = V.slice (minColIndex + 1) (maxColIndex - (minColIndex + 1)) row
+              col2Elem = V.slice maxColIndex 1 row
+              endElems = V.drop (maxColIndex + 1) row
+              resultRow = startElems V.++ col2Elem V.++ midElems V.++ col1Elem V.++ endElems
+              restResultRows = _swapColsHelper restRows cols colIndex1 colIndex2

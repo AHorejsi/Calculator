@@ -16,10 +16,10 @@ val1 :: BigScalar
 val1 = integer $ -1501
 
 val2 :: BigScalar
-val2 = integer 1000
+val2 = integer 1001
 
 mat1 :: BigMatrix
-mat1 = mlist [[real $ -6.5, integer 9, real 1.7],[real $ -7.8, real 66.5, real 4.07],[real $ -8.99, real 4.5, real $ -0.8]]
+mat1 = mlist [[integer 1, integer 2, integer 3],[integer 4, integer 5, integer 6],[integer 7, integer 8, integer 9]]
 
 main :: IO ()
-main = putStrLn $ "\n" ++ (show $ swapRows mat1 0 2) ++ "\n"
+main = putStrLn $ "\n" ++ (show $ swapCols mat1 0 2) ++ "\n"
