@@ -119,6 +119,22 @@ module BigMatrix (
     mmults :: BigMatrix -> BS.BigScalar -> BigMatrix
     mmults left right = _unaryOperation ((flip BS.smult) right) left
 
+    vmultm :: BV.BigVector -> BigMatrix -> MI.MathResult BigMatrix
+    vmultm left = mmult (rowVector left)
+
+    mmultv :: BigMatrix -> BV.BigVector -> MI.MathResult BigMatrix
+    mmultv left right = mmult left (colVector right)
+
+    rowVector :: BV.BigVector -> BigMatrix
+    rowVector vec = BigMatrix list 1 dimensions
+        where dimensions = BV.vsize vec
+              list = BV.asVector vec
+    
+    colVector :: BV.BigVector -> BigMatrix
+    colVector vec = BigMatrix list dimensions 1
+        where dimensions = BV.vsize vec
+              list = BV.asVector vec
+
     _unaryOperation :: BS.UnaryScalarOperation -> BigMatrix -> BigMatrix
     _unaryOperation operation (BigMatrix table rows cols) = BigMatrix (V.map operation table) rows cols
 
