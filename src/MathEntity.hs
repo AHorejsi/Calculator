@@ -16,8 +16,11 @@ module MathEntity (
     isList,
     isMatrix,
     isBool,
-    entityPlus,
-    entityMinus,
+    plus,
+    minus,
+    mult,
+    H.hash,
+    H.hashWithSalt,
     (==),
     (/=),
     show
@@ -93,27 +96,46 @@ module MathEntity (
         | otherwise = MI.convert result
         where val = MI.value result
 
-    entityPlus :: MathEntity -> MathEntity -> MI.MathResult MathEntity
-    entityPlus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.withValue $ ScalarEntity $ BS.splus leftScalar rightScalar
-    entityPlus (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.splusl leftScalar rightList
-    entityPlus (VectorEntity leftVec) (VectorEntity rightVec) = _entity result VectorEntity
+    plus :: MathEntity -> MathEntity -> MI.MathResult MathEntity
+    plus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.withValue $ ScalarEntity $ BS.splus leftScalar rightScalar
+    plus (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.splusl leftScalar rightList
+    plus (VectorEntity leftVec) (VectorEntity rightVec) = _entity result VectorEntity
         where result = BV.vplus leftVec rightVec
-    entityPlus (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lpluss leftList rightScalar
-    entityPlus (ListEntity leftList) (ListEntity rightList) = _entity result ListEntity
+    plus (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lpluss leftList rightScalar
+    plus (ListEntity leftList) (ListEntity rightList) = _entity result ListEntity
         where result = BL.lplus leftList rightList
-    entityPlus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = _entity result MatrixEntity
+    plus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = _entity result MatrixEntity
         where result = BM.mplus leftMatrix rightMatrix
-    entityPlus _ _ = MI.withError MI.IncompatibleTypes
+    plus _ _ = MI.withError MI.IncompatibleTypes
 
-    entityMinus :: MathEntity -> MathEntity -> MI.MathResult MathEntity
-    entityMinus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.withValue $ ScalarEntity $ BS.sminus leftScalar rightScalar
-    entityMinus (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.sminusl leftScalar rightList
-    entityMinus (VectorEntity leftVec) (VectorEntity rightVec) = _entity result VectorEntity
+    minus :: MathEntity -> MathEntity -> MI.MathResult MathEntity
+    minus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.withValue $ ScalarEntity $ BS.sminus leftScalar rightScalar
+    minus (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.sminusl leftScalar rightList
+    minus (VectorEntity leftVec) (VectorEntity rightVec) = _entity result VectorEntity
         where result = BV.vminus leftVec rightVec
-    entityMinus (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lminuss leftList rightScalar
-    entityMinus (ListEntity leftList) (ListEntity rightList) = _entity result ListEntity
+    minus (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lminuss leftList rightScalar
+    minus (ListEntity leftList) (ListEntity rightList) = _entity result ListEntity
         where result = BL.lminus leftList rightList
-    entityMinus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = _entity result MatrixEntity
+    minus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = _entity result MatrixEntity
         where result = BM.mminus leftMatrix rightMatrix
-    entityMinus _ _ = MI.withError MI.IncompatibleTypes
+    minus _ _ = MI.withError MI.IncompatibleTypes
+
+    mult :: MathEntity -> MathEntity -> MI.MathResult MathEntity
+    mult (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.withValue $ ScalarEntity $ BS.splus leftScalar rightScalar
+    mult (ScalarEntity leftScalar) (VectorEntity rightVector) = _entity result VectorEntity
+        where result = BV.smultv leftScalar rightVector
+    mult (ScalarEntity leftScalar) (ListEntity rightList) = MI.withValue $ ListEntity $ BL.smultl leftScalar rightList
+    mult (ScalarEntity leftScalar) (MatrixEntity rightMatrix) = MI.withValue $ MatrixEntity $ BM.smultm leftScalar rightMatrix
+    mult (VectorEntity leftVector) (ScalarEntity rightScalar) = _entity result VectorEntity
+        where result = BV.vmults leftVector rightScalar
+    mult (VectorEntity leftVector) (MatrixEntity rightMatrix) = _entity result MatrixEntity
+        where result = BM.vmultm leftVector rightMatrix
+    mult (ListEntity leftList) (ScalarEntity rightScalar) = MI.withValue $ ListEntity $ BL.lmults leftList rightScalar
+    mult (ListEntity leftList) (ListEntity rightList) = _entity result ListEntity
+        where result = BL.lmult leftList rightList
+    mult (MatrixEntity leftMatrix) (ScalarEntity rightScalar) = MI.withValue $ MatrixEntity $ BM.mmults leftMatrix rightScalar
+    mult (MatrixEntity leftMatrix) (VectorEntity rightVector) = _entity result MatrixEntity
+        where result = BM.mmultv leftMatrix rightVector
+    mult (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = _entity result MatrixEntity
+        where result = BM.mmult leftMatrix rightMatrix
     

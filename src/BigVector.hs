@@ -3,8 +3,9 @@
 module BigVector (
     BigVector,
     vlist,
-    vvec,
+    vseq,
     vsize,
+    vlength,
     vequalSize,
     wPos,
     xPos,
@@ -25,7 +26,9 @@ module BigVector (
     vdist,
     vangle,
     asList,
-    asVector,
+    asSeq,
+    H.hash,
+    H.hashWithSalt,
     (==),
     (/=),
     show
@@ -33,7 +36,9 @@ module BigVector (
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
     import qualified Data.Maybe as M
-    import qualified Data.Vector as V
+    import qualified Data.List as L
+    import qualified Data.Sequence as S
+    import qualified Data.Foldable as F
     import qualified Data.Hashable as H
     import qualified MathInfo as MI
     import qualified BigScalar as BS
@@ -57,11 +62,14 @@ module BigVector (
         | any BS.isExactQuaternion pos = MI.withError MI.InvalidType
         | otherwise = MI.withValue $ BigVector pos
 
-    vvec :: V.Vector BS.BigScalar -> MI.MathResult BigVector
-    vvec = vlist . V.toList
+    vseq :: S.Seq BS.BigScalar -> MI.MathResult BigVector
+    vseq = vlist . F.toList
 
-    vsize :: BigVector -> Int
-    vsize (BigVector pos) = length pos
+    vsize :: BigVector -> BS.BigScalar
+    vsize = BS.integral . vlength
+
+    vlength :: BigVector -> Int
+    vlength (BigVector pos) = length pos
 
     vequalSize :: BigVector -> BigVector -> Bool
     vequalSize left right = (vsize left) == (vsize right)
@@ -71,15 +79,16 @@ module BigVector (
 
     wPos :: BigVector -> MI.MathResult BS.BigScalar
     wPos vec
-        | 4 == (vsize vec) = MI.withValue $ head $ _pos vec
+        | 4 == vecLength = MI.withValue $ head $ _pos vec
         | otherwise = MI.withError MI.InvalidLength
+        where vecLength = vlength vec
 
     xPos :: BigVector -> MI.MathResult BS.BigScalar
     xPos vec
         | vecLength <= 3 = MI.withValue $ head vecPos
         | 4 == vecLength = MI.withValue $ vecPos !! 1
         | otherwise = MI.withError MI.InvalidLength
-        where vecLength = vsize vec
+        where vecLength = vlength vec
               vecPos = _pos vec
 
     yPos :: BigVector -> MI.MathResult BS.BigScalar
@@ -87,19 +96,24 @@ module BigVector (
         | vecLength <= 3 = MI.withValue $ vecPos !! 1
         | 4 == vecLength = MI.withValue $ vecPos !! 2
         | otherwise = MI.withError MI.InvalidLength
-        where vecLength = vsize vec
+        where vecLength = vlength vec
               vecPos = _pos vec
     
     zPos :: BigVector -> MI.MathResult BS.BigScalar
     zPos vec
         | 3 == vecLength || 4 == vecLength = MI.withValue $ last $ _pos vec
         | otherwise = MI.withError MI.InvalidLength
-        where vecLength = vsize vec
+        where vecLength = vlength vec
 
-    vget :: BigVector -> Int -> MI.MathResult BS.BigScalar
+    vget :: BigVector -> BS.BigScalar -> MI.MathResult BS.BigScalar
     vget vec@(BigVector pos) index
-        | index < 0 || index >= (vsize vec) = MI.withError MI.InvalidIndex
-        | otherwise = MI.withValue $ pos !! index
+        | not $ BS.isExactInteger index = MI.withError MI.InvalidType
+        | lessThanZero || greaterThanSize = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ L.genericIndex pos integralIndex
+        where vecSize = vsize vec
+              integralIndex = BS.asBuiltInInteger index
+              lessThanZero = MI.value $ BS.sLess index BS.zero
+              greaterThanSize = MI.value $ BS.sGreater index vecSize
 
     vplus :: BigVector -> BigVector -> MI.MathResult BigVector
     vplus = _binaryOperation BS.splus
@@ -129,7 +143,7 @@ module BigVector (
 
     vcross :: BigVector -> BigVector -> MI.MathResult BigVector
     vcross left right
-        | 3 == (vsize left) && 3 == (vsize right) = vlist [resultXPos, resultYPos, resultZPos]
+        | 3 == (vlength left) && 3 == (vlength right) = vlist [resultXPos, resultYPos, resultZPos]
         | otherwise = MI.withError MI.InvalidLength
         where leftXPos = MI.value $ xPos left
               leftYPos = MI.value $ yPos left
@@ -181,5 +195,5 @@ module BigVector (
     asList :: BigVector -> [BS.BigScalar]
     asList (BigVector pos) = pos
     
-    asVector :: BigVector -> V.Vector BS.BigScalar
-    asVector (BigVector pos) = V.fromList pos
+    asSeq :: BigVector -> S.Seq BS.BigScalar
+    asSeq (BigVector pos) = S.fromList pos

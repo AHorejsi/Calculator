@@ -50,6 +50,8 @@ module BigList (
     lIsSorted,
     lsub,
     lconcat,
+    H.hash,
+    H.hashWithSalt,
     (==),
     (/=),
     show
@@ -315,7 +317,9 @@ module BigList (
               minmaxSum = MI.binCombine minValue maxValue BS.splus
 
     lmode :: BigList -> BigList
-    lmode (BigList vals) = llist $ HM.keys modeMap
+    lmode (BigList vals)
+        | 1 == maxCount = lempty
+        | otherwise = llist $ HM.keys modeMap
         where counts = _count vals HM.empty
               maxCount = maximum $ HM.elems counts
               modeMap = HM.filter (==maxCount) counts

@@ -24,6 +24,7 @@ dependencies:
 - vector
 - hashable
 - unordered-containers
+- containers
 - hashtables
 - numbers
 - threepenny-gui

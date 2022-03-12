@@ -10,6 +10,7 @@ module BigScalar (
     ErrableComparisonOperation,
     integral,
     integer,
+    asBuiltInInteger,
     real,
     complex,
     quaternion,
@@ -24,6 +25,8 @@ module BigScalar (
     zero,
     one,
     two,
+    three,
+    four,
     eight,
     ten,
     sixteen,
@@ -90,8 +93,6 @@ module BigScalar (
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
-    import qualified Data.Char as C
-    import qualified Data.Bits as B
     import qualified Data.Hashable as H
     import qualified Data.HashSet as HS
     import qualified Data.Number.Fixed as F
@@ -135,6 +136,10 @@ module BigScalar (
 
     integral :: (Integral a) => a -> BigScalar
     integral val = integer $ toInteger val
+
+    asBuiltInInteger :: BigScalar -> Integer
+    asBuiltInInteger (BigInteger intVal) = intVal
+    asBuiltInInteger _ = error "Input is not a BigInteger"
 
     integer :: BigInt_ -> BigScalar
     integer = BigInteger
@@ -191,6 +196,12 @@ module BigScalar (
 
     two :: BigScalar
     two = BigInteger 2
+
+    three :: BigScalar
+    three = BigInteger 3
+
+    four :: BigScalar
+    four = BigInteger 4
 
     eight :: BigScalar
     eight = BigInteger 8
