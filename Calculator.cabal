@@ -41,6 +41,7 @@ library
     , hashable
     , hashtables
     , numbers
+    , parsec
     , threepenny-gui
     , unordered-containers
     , vector
@@ -60,6 +61,7 @@ executable Calculator
     , hashable
     , hashtables
     , numbers
+    , parsec
     , threepenny-gui
     , unordered-containers
     , vector
@@ -80,6 +82,7 @@ test-suite Calculator-test
     , hashable
     , hashtables
     , numbers
+    , parsec
     , threepenny-gui
     , unordered-containers
     , vector

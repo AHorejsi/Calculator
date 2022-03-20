@@ -19,7 +19,7 @@ module MathInfo (
         IncompatibleTypes,
         InvalidType
     ),
-    MathResult,
+    Result,
     UnaryOperation,
     ErrableUnaryOperation,
     BinaryOperation,
@@ -71,20 +71,20 @@ module MathInfo (
         IncompatibleTypes
         deriving (Enum, G.Generic, Eq, Show)
 
-    data MathResult a = Success {
+    data Result a = Success {
         _val :: a
     } | Failure {
         _errors :: HS.HashSet MathError
     } deriving (Eq)
 
-    instance (Show a) => Show (MathResult a) where
+    instance (Show a) => Show (Result a) where
         show (Success val) = TP.printf "Success{ %s }" (show val)
         show (Failure errors) = TP.printf "Failure{ %s }" (_str $ HS.toList errors)
 
     type UnaryOperation a b = a -> b
-    type ErrableUnaryOperation a b = a -> MathResult b
+    type ErrableUnaryOperation a b = a -> Result b
     type BinaryOperation a b c = a -> b -> c
-    type ErrableBinaryOperation a b c = a -> b -> MathResult c
+    type ErrableBinaryOperation a b c = a -> b -> Result c
 
     instance H.Hashable MathError where
         hashWithSalt salt value = H.hashWithSalt salt (fromEnum value)
@@ -94,69 +94,69 @@ module MathInfo (
     _str [error] = show error
     _str (error:errors) = (show error) ++ ", " ++ (_str errors)
 
-    withValue :: a -> MathResult a
+    withValue :: a -> Result a
     withValue = Success
 
-    withError :: MathError -> MathResult a
+    withError :: MathError -> Result a
     withError errorValue = withErrorSet $ HS.singleton errorValue
 
-    withErrorSet :: HS.HashSet MathError -> MathResult a
+    withErrorSet :: HS.HashSet MathError -> Result a
     withErrorSet = Failure
 
-    withErrorList :: [MathError] -> MathResult a
+    withErrorList :: [MathError] -> Result a
     withErrorList errorList
         | (length errorList) /= (HS.size errors) = error "Duplicate errors"
         | otherwise = withErrorSet errors
         where errors = HS.fromList errorList
 
-    convert :: MathResult a -> MathResult b
+    convert :: Result a -> Result b
     convert fail@Failure{} = withErrorSet $ errorSet fail
     convert Success{} = error "Result is valid"
 
-    value :: MathResult a -> a
+    value :: Result a -> a
     value (Success val) = val
     value (Failure errors) = error "Result is invalid"
 
-    errorSet :: MathResult a -> HS.HashSet MathError
+    errorSet :: Result a -> HS.HashSet MathError
     errorSet Success{} = HS.empty
     errorSet (Failure errors) = errors
 
-    isSuccess :: MathResult a -> Bool
+    isSuccess :: Result a -> Bool
     isSuccess Success{} = True
     isSuccess Failure{} = False
 
-    isFailure :: MathResult a -> Bool
+    isFailure :: Result a -> Bool
     isFailure = not . isSuccess
 
-    unResolve :: MathResult a -> UnaryOperation a b -> MathResult b
+    unResolve :: Result a -> UnaryOperation a b -> Result b
     unResolve (Success val) func = withValue $ func val
     unResolve fail@Failure{} _ = convert fail
 
-    binResolveLeft :: MathResult a -> b -> BinaryOperation a b c -> MathResult c
+    binResolveLeft :: Result a -> b -> BinaryOperation a b c -> Result c
     binResolveLeft (Success leftVal) rightVal func = withValue $ func leftVal rightVal
     binResolveLeft fail@Failure{} _ _ = convert fail
 
-    binResolveRight :: a -> MathResult b -> BinaryOperation a b c -> MathResult c
+    binResolveRight :: a -> Result b -> BinaryOperation a b c -> Result c
     binResolveRight left right func = binResolveLeft right left (flip func)
 
-    errUnResolve :: MathResult a -> ErrableUnaryOperation a b -> MathResult b
+    errUnResolve :: Result a -> ErrableUnaryOperation a b -> Result b
     errUnResolve (Success val) func = func val
     errUnResolve fail@Failure{} _ = convert fail
 
-    errBinResolveLeft :: MathResult a -> b -> ErrableBinaryOperation a b c -> MathResult c
+    errBinResolveLeft :: Result a -> b -> ErrableBinaryOperation a b c -> Result c
     errBinResolveLeft (Success leftVal) rightVal func = func leftVal rightVal
     errBinResolveLeft fail@Failure{} _ _ = convert fail
 
-    errBinResolveRight :: a -> MathResult b -> ErrableBinaryOperation a b c -> MathResult c
+    errBinResolveRight :: a -> Result b -> ErrableBinaryOperation a b c -> Result c
     errBinResolveRight left right func = errBinResolveLeft right left (flip func)
 
-    binCombine :: MathResult a -> MathResult b -> BinaryOperation a b c -> MathResult c
+    binCombine :: Result a -> Result b -> BinaryOperation a b c -> Result c
     binCombine (Success leftVal) (Success rightVal) func = withValue $ func leftVal rightVal
     binCombine (Failure leftErrorSet) (Failure rightErrorSet) _ = withErrorSet $ HS.unions [leftErrorSet, rightErrorSet]
     binCombine leftFail@Failure{} _ _ = convert leftFail
     bincCombine _ rightFail@Failure{} _ = convert rightFail
 
-    errBinCombine :: MathResult a -> MathResult b -> ErrableBinaryOperation a b c -> MathResult c
+    errBinCombine :: Result a -> Result b -> ErrableBinaryOperation a b c -> Result c
     errBinCombine (Success leftVal) (Success rightVal) func = func leftVal rightVal
     errBinCombine (Failure leftErrorSet) (Failure rightErrorSet) _ = withErrorSet $ HS.unions [leftErrorSet, rightErrorSet]
     errBinCombine leftFail@Failure{} _ _ = convert leftFail
