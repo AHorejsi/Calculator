@@ -556,6 +556,11 @@ module MathEntity (
         where result = BS.sfloor scalar
     floor _ = MI.withError MI.InvalidType
 
+    round :: MathEntity -> MI.Result MathEntity
+    round (ScalarEntity scalar) = MI.unResolve result makeScalar
+        where result = BS.sround scalar
+    round _ = MI.withError MI.InvalidType
+
     even :: MathEntity -> MI.Result MathEntity
     even (ScalarEntity scalar) = boolResult $ BS.sEven scalar
     even _ = MI.withError MI.InvalidType
