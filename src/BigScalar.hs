@@ -11,6 +11,7 @@ module BigScalar (
     integral,
     integer,
     asBuiltInInteger,
+    asBuiltInInt,
     real,
     complex,
     quaternion,
@@ -139,6 +140,9 @@ module BigScalar (
     asBuiltInInteger :: BigScalar -> BigInt_
     asBuiltInInteger (BigInteger intVal) = intVal
     asBuiltInInteger _ = error "Input is not a BigInteger"
+
+    asBuiltInInt :: BigScalar -> Int
+    asBuiltInInt = fromIntegral . asBuiltInInteger
 
     integer :: BigInt_ -> BigScalar
     integer = BigInteger

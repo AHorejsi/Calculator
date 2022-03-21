@@ -8,6 +8,7 @@ module BigList (
     lrepeat,
     lincrement,
     lsize,
+    llength,
     lequalSize,
     lget,
     splusl,
@@ -25,6 +26,7 @@ module BigList (
     sdivl,
     ldivs,
     ldiv,
+    ldivPad,
     spowl,
     lpows,
     lpow,
@@ -103,11 +105,14 @@ module BigList (
     _computeRange current increment count = V.cons current (_computeRange next increment (count - 1))
         where next = BS.splus current increment
 
-    lsize :: BigList -> Int
-    lsize (BigList vals) = V.length vals
+    lsize :: BigList -> BS.BigScalar
+    lsize = BS.integral . llength
+
+    llength :: BigList -> Int
+    llength (BigList vals) = V.length vals
 
     lequalSize :: BigList -> BigList -> Bool
-    lequalSize left right = (lsize left) == (lsize right)
+    lequalSize left right = (llength left) == (llength right)
 
     lget :: BigList -> Int -> MI.Result BS.BigScalar
     lget list@(BigList vals) index
@@ -195,8 +200,8 @@ module BigList (
 
     _binaryOperationPad :: BS.BinaryScalarOperation -> BS.BigScalar -> BigList -> BigList -> BigList
     _binaryOperationPad operation scalar left right = MI.value $ _binaryOperation operation leftPadded rightPadded
-        where leftSize = lsize left
-              rightSize = lsize right
+        where leftSize = llength left
+              rightSize = llength right
               sizeDiff = abs $ leftSize - rightSize
               leftPadded = if leftSize < rightSize then _pad sizeDiff scalar left else left
               rightPadded = if leftSize > rightSize then _pad sizeDiff scalar right else right
@@ -210,8 +215,8 @@ module BigList (
 
     _errableBinaryOperationPad :: BS.ErrableBinaryScalarOperation -> BS.BigScalar -> BigList -> BigList -> MI.Result BigList
     _errableBinaryOperationPad operation scalar left right = _errableBinaryOperation operation leftPadded rightPadded
-        where leftSize = lsize left
-              rightSize = lsize right
+        where leftSize = llength left
+              rightSize = llength right
               sizeDiff = abs $ leftSize - rightSize
               leftPadded = if leftSize < rightSize then _pad sizeDiff scalar left else left
               rightPadded = if leftSize > rightSize then _pad sizeDiff scalar right else right
@@ -254,23 +259,23 @@ module BigList (
 
     lmean :: BigList -> MI.Result BS.BigScalar
     lmean list@(BigList vals)
-        | 0 == listSize = MI.withError MI.ZeroLength
-        | otherwise = BS.sdiv sumValue (BS.integral listSize)
+        | 0 == (llength list) = MI.withError MI.ZeroLength
+        | otherwise = BS.sdiv sumValue listSize
         where listSize = lsize list
               sumValue = lsum list
 
     lgmean :: BigList -> MI.Result BS.BigScalar
     lgmean list@(BigList vals)
-        | 0 == listSize = MI.withError MI.ZeroLength
-        | otherwise = BS.spow prodValue (MI.value $ BS.sinv $ BS.integral listSize)
+        | 0 == (llength list) = MI.withError MI.ZeroLength
+        | otherwise = BS.spow prodValue (MI.value $ BS.sinv listSize)
         where listSize = lsize list
               prodValue = lprod list
 
     lhmean :: BigList -> MI.Result BS.BigScalar
     lhmean list@(BigList vals)
-        | 0 == listSize = MI.withError MI.ZeroLength
+        | 0 == (llength list) = MI.withError MI.ZeroLength
         | MI.isFailure invList = MI.convert invList
-        | otherwise = BS.sdiv (BS.integral listSize) invListSum
+        | otherwise = BS.sdiv listSize invListSum
         where listSize = lsize list
               invList = _inverseList list
               invListSum = lsum $ MI.value invList
@@ -288,8 +293,8 @@ module BigList (
         | _containsNonreal vals = MI.withError MI.InvalidType
         | even listSize = BS.sdiv (BS.splus (_quickSelect (halfSize - 1) vals) (_quickSelect halfSize vals)) BS.two
         | otherwise = MI.withValue $ _quickSelect halfSize vals
-        where listSize = lsize list
-              halfSize = ceiling $ (fromIntegral listSize) / 2
+        where listSize = llength list
+              halfSize = div listSize 2
 
     _quickSelect :: Int -> V.Vector BS.BigScalar -> BS.BigScalar
     _quickSelect index vals
@@ -298,7 +303,7 @@ module BigList (
         | otherwise = headVal
         where headVal = V.head vals
               rest = V.tail vals
-              (left, right) = V.partition (\other -> LT == (MI.value $ BS.scompare other headVal)) rest
+              (left, right) = V.partition (\other -> MI.value $ BS.sLess other headVal) rest
               leftSize = V.length left
 
     lrange :: BigList -> MI.Result BS.BigScalar
@@ -391,11 +396,13 @@ module BigList (
         where sortedAsc = lIsSortedAsc list
               sortedDesc = lIsSortedDesc list
 
-    lsub :: BigList -> Int -> Int -> MI.Result BigList
+    lsub :: BigList -> BS.BigScalar -> BS.BigScalar -> MI.Result BigList
     lsub list@(BigList vals) lowIndex highIndex
-        | lowIndex < 0 || lowIndex >= listSize || highIndex < 0 || highIndex >= listSize || lowIndex > highIndex = MI.withError MI.InvalidIndex
-        | otherwise = MI.withValue $ lvec $ V.slice lowIndex (highIndex - lowIndex) vals
-        where listSize = lsize list
+        | lowIndexInt < 0 || lowIndexInt >= listSize || highIndexInt < 0 || highIndexInt >= listSize || lowIndexInt > highIndexInt = MI.withError MI.InvalidIndex
+        | otherwise = MI.withValue $ lvec $ V.slice lowIndexInt (highIndexInt - lowIndexInt) vals
+        where listSize = llength list
+              lowIndexInt = BS.asBuiltInInt lowIndex
+              highIndexInt = BS.asBuiltInInt highIndex
 
     lconcat :: BigList -> BigList -> BigList
     lconcat (BigList leftVals) (BigList rightVals) = lvec $ leftVals V.++ rightVals

@@ -16,7 +16,6 @@ module MathInfo (
         UnequalLength,
         NoncomparableType,
         UnsortedList,
-        IncompatibleTypes,
         InvalidType
     ),
     Result,
@@ -67,8 +66,7 @@ module MathInfo (
         UnequalLength |
         NoncomparableType |
         UnsortedList |
-        InvalidType |
-        IncompatibleTypes
+        InvalidType
         deriving (Enum, G.Generic, Eq, Show)
 
     data Result a = Success {

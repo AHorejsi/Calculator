@@ -7,6 +7,7 @@ module BigVector (
     vsize,
     vlength,
     vequalSize,
+    vIsNull,
     wPos,
     xPos,
     yPos,
@@ -74,8 +75,8 @@ module BigVector (
     vequalSize :: BigVector -> BigVector -> Bool
     vequalSize left right = (vlength left) == (vlength right)
 
-    isNull :: BigVector -> Bool
-    isNull (BigVector pos) = all (==BS.zero) pos
+    vIsNull :: BigVector -> Bool
+    vIsNull (BigVector pos) = all (==BS.zero) pos
 
     wPos :: BigVector -> MI.Result BS.BigScalar
     wPos vec
@@ -169,7 +170,7 @@ module BigVector (
 
     vnorm :: BigVector -> MI.Result BigVector
     vnorm vec
-        | isNull vec = MI.withError MI.NullVector
+        | vIsNull vec = MI.withError MI.NullVector
         | otherwise = vdivs vec (vabs vec)
 
     vdist :: BigVector -> BigVector -> MI.Result BS.BigScalar
@@ -189,7 +190,7 @@ module BigVector (
     vangle :: BigVector -> BigVector -> MI.Result BS.BigScalar
     vangle left right
         | not $ vequalSize left right = MI.withError MI.UnequalLength
-        | (isNull left) || (isNull right) = MI.withError MI.NullVector
+        | (vIsNull left) || (vIsNull right) = MI.withError MI.NullVector
         | otherwise = BS.sacos $ MI.value $ BS.sdiv (MI.value $ vdot left right) (BS.smult (vabs left) (vabs right))
 
     asList :: BigVector -> [BS.BigScalar]
