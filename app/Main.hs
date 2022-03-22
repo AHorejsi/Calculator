@@ -22,4 +22,4 @@ mat1 :: BigMatrix
 mat1 = mlist [[integer 1, integer 2, integer 3],[integer 4, integer 5, integer 6],[integer 7, integer 8, integer 9]]
 
 main :: IO ()
-main = putStrLn $ "\n" ++ (show $ lmean list2) ++ "\n"
+main = putStrLn $ "\n" ++ (show $ spow one imagI) ++ "\n"

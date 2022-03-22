@@ -84,12 +84,7 @@ module BigScalar (
     sLessEqual,
     sGreaterEqual,
     sEven,
-    sOdd,
-    (==),
-    (/=),
-    H.hash,
-    H.hashWithSalt,
-    show
+    sOdd
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
@@ -518,18 +513,18 @@ module BigScalar (
 
     sacosh :: BigScalar -> MI.Result BigScalar
     sacosh val@BigInteger{} = sacosh $ _forceReal val
-    sacosh (BigReal realVal)
+    sacosh val@(BigReal realVal)
         | (-1) <= realVal && realVal <= 1 = MI.withValue $ real $ acosh realVal
-        | otherwise = sacosh $ BigComplex realVal 0
+        | otherwise = sacosh $ _forceComplex val
     sacosh com@BigComplex{} = MI.binResolveRight imagI acosValue smult
         where acosValue = sacos com
     sacosh _ = MI.withError MI.InvalidType
 
     satanh :: BigScalar -> MI.Result BigScalar
     satanh val@BigInteger{} = satanh $ _forceReal val
-    satanh (BigReal realVal)
+    satanh val@(BigReal realVal)
         | (-1) <= realVal && realVal <= 1 = MI.withValue $ real $ atanh realVal
-        | otherwise = satanh $ BigComplex realVal 0
+        | otherwise = satanh $ _forceComplex val
     satanh com@BigComplex{} = MI.errBinResolveLeft atanValue imagI sdiv
         where atanValue = satan $ smult imagI com
     satanh _ = MI.withError MI.InvalidType

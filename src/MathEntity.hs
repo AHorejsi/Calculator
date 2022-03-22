@@ -106,21 +106,19 @@ module MathEntity (
     isSortedDesc,
     isSorted,
     sublist,
+    concat,
+    merge,
     rowVector,
     colVector,
     det,
     transpose,
+    submatrix,
     not,
     and,
     or,
-    xor,
-    H.hash,
-    H.hashWithSalt,
-    (==),
-    (/=),
-    show
+    xor
 ) where
-    import Prelude hiding (abs, div, mod, rem, lcm, gcd, sqrt, exp, log, logBase, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, atan2, asinh, acosh, atanh, min, max, ceiling, floor, even, odd, sum, not, and, or)
+    import Prelude hiding (abs, div, mod, rem, lcm, gcd, sqrt, exp, log, logBase, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, atan2, asinh, acosh, atanh, min, max, ceiling, floor, even, odd, sum, concat, not, and, or)
     import qualified GHC.Generics as G
     import qualified Data.Hashable as H
     import qualified MathInfo as MI
@@ -685,6 +683,15 @@ module MathEntity (
     sublist (ListEntity list) (ScalarEntity lowIndex) (ScalarEntity highIndex) = MI.unResolve result makeList
         where result = BL.lsub list lowIndex highIndex
 
+    concat :: MathEntity -> MathEntity -> MI.Result MathEntity
+    concat (ListEntity leftList) (ListEntity rightList) = listResult $ BL.lconcat leftList rightList
+    concat _ _ = MI.withError MI.InvalidType
+
+    merge :: MathEntity -> MathEntity -> MI.Result MathEntity
+    merge (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
+        where result = BL.lmerge leftList rightList
+    merge _ _ = MI.withError MI.InvalidType
+
     rowVector :: MathEntity -> MI.Result MathEntity
     rowVector (VectorEntity vector) = matrixResult $ BM.mRowVector vector
     rowVector _ = MI.withError MI.InvalidType
@@ -696,9 +703,16 @@ module MathEntity (
     det :: MathEntity -> MI.Result MathEntity
     det (MatrixEntity matrix) = MI.unResolve result makeScalar
         where result = BM.mdet matrix
+    det _ = MI.withError MI.InvalidType
 
     transpose :: MathEntity -> MI.Result MathEntity
     transpose (MatrixEntity matrix) = matrixResult $ BM.mtranspose matrix
+    transpose _ = MI.withError MI.InvalidType
+
+    submatrix :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    submatrix (MatrixEntity matrix) (ScalarEntity lowIndex) (ScalarEntity highIndex) = MI.unResolve result makeMatrix
+        where result = BM.msub matrix lowIndex highIndex
+    submatrix _ _ _ = MI.withError MI.InvalidType
 
     not :: MathEntity -> MI.Result MathEntity
     not entity@BoolEntity{}
@@ -717,7 +731,3 @@ module MathEntity (
     xor :: MathEntity -> MathEntity -> MI.Result MathEntity
     xor (BoolEntity leftBool) (BoolEntity rightBool) = boolResult $ leftBool /= rightBool
     xor _ _ = MI.withError MI.InvalidType
-
-    --ifThen :: MathEntity -> MathEntity -> MI.Result MathEntity
-
-    --ifAndOnlyIfThen :: MathEntity -> MathEntity -> MI.Result MathEntity

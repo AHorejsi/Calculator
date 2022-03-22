@@ -31,12 +31,7 @@ module BigMatrix (
     mdet,
     minv,
     mtranspose,
-    msub,
-    (==),
-    (/=),
-    H.hash,
-    H.hashWithSalt,
-    show
+    msub
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
@@ -63,18 +58,17 @@ module BigMatrix (
     _str table rowsLeft totalCols = case rowsLeft of 0 -> ""
                                                      1 -> TP.printf "%s" (show $ F.toList currentRow)
                                                      _ -> TP.printf "%s, %s" (show $ F.toList currentRow) (_str rest (rowsLeft - 1) totalCols)
-        where currentRow = S.take totalCols table
-              rest = S.drop totalCols table
+        where (currentRow, rest) = S.splitAt totalCols table
 
     mlist :: [[BS.BigScalar]] -> BigMatrix
-    mlist table = BigMatrix vec rowLength colLength
-        where vec = S.fromList $ concat table
+    mlist table = BigMatrix seq rowLength colLength
+        where seq = S.fromList $ concat table
               rowLength = length table
               colLength = length $ head table
 
     mseq :: S.Seq (S.Seq BS.BigScalar) -> BigMatrix
-    mseq table = BigMatrix concatVec rowLength colLength
-        where concatVec = foldr (S.><) S.empty table
+    mseq table = BigMatrix concatSeq rowLength colLength
+        where concatSeq = F.foldr (S.><) S.empty table
               rowLength = length table
               colLength = length $ S.index table 0
 
@@ -156,22 +150,22 @@ module BigMatrix (
     mmult :: BigMatrix -> BigMatrix -> MI.Result BigMatrix
     mmult left@(BigMatrix _ leftRows leftCols) right@(BigMatrix _ rightRows rightCols)
         | isMatrixMultipliable left right = MI.withError MI.NotMultipliableMatrices
-        | otherwise = MI.withValue $ BigMatrix (_mmultHelper left right 0 0 leftRows rightCols) leftRows rightCols
+        | otherwise = MI.withValue $ BigMatrix (_mmultHelper1 left right 0 0 leftRows rightCols) leftRows rightCols
 
-    _mmultHelper :: BigMatrix -> BigMatrix -> Int -> Int -> Int -> Int -> S.Seq BS.BigScalar
-    _mmultHelper left right rowIndex colIndex leftRows rightCols
+    _mmultHelper1 :: BigMatrix -> BigMatrix -> Int -> Int -> Int -> Int -> S.Seq BS.BigScalar
+    _mmultHelper1 left right rowIndex colIndex leftRows rightCols
         | nextRowIndex == leftRows = S.singleton elem
         | otherwise = elem S.<| next
-        where elem = _mmultTraverse 0 rowIndex colIndex leftRows left right
-              next = _mmultHelper left right nextRowIndex nextColIndex leftRows rightCols
+        where elem = _mmultHelper2 0 rowIndex colIndex leftRows left right
+              next = _mmultHelper1 left right nextRowIndex nextColIndex leftRows rightCols
               (nextRowIndex, nextColIndex) = _rowTraversal rowIndex colIndex rightCols
 
-    _mmultTraverse :: Int -> Int -> Int -> Int -> BigMatrix -> BigMatrix -> BS.BigScalar
-    _mmultTraverse index rowIndex colIndex endIndex left right
+    _mmultHelper2 :: Int -> Int -> Int -> Int -> BigMatrix -> BigMatrix -> BS.BigScalar
+    _mmultHelper2 index rowIndex colIndex endIndex left right
         | index == endIndex = elem
         | otherwise = BS.splus elem next
         where elem = BS.smult (MI.value $ mget left rowIndex index) (MI.value $ mget right index colIndex)
-              next = _mmultTraverse (index + 1) rowIndex colIndex endIndex left right
+              next = _mmultHelper2 (index + 1) rowIndex colIndex endIndex left right
 
     _rowTraversal :: Int -> Int -> Int -> (Int, Int)
     _rowTraversal rowIndex colIndex cols = (nextRowIndex, nextColIndex)

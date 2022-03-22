@@ -27,12 +27,7 @@ module BigVector (
     vdist,
     vangle,
     asList,
-    asSeq,
-    H.hash,
-    H.hashWithSalt,
-    (==),
-    (/=),
-    show
+    asSeq
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP

@@ -39,12 +39,7 @@ module MathInfo (
     errBinResolveRight,
     binCombine,
     errBinCombine,
-    convert,
-    H.hash,
-    H.hashWithSalt,
-    (==),
-    (/=),
-    show
+    convert
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP

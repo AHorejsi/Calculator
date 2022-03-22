@@ -44,7 +44,6 @@ library
     , parsec
     , threepenny-gui
     , unordered-containers
-    , vector
   default-language: Haskell2010
 
 executable Calculator
@@ -64,7 +63,6 @@ executable Calculator
     , parsec
     , threepenny-gui
     , unordered-containers
-    , vector
   default-language: Haskell2010
 
 test-suite Calculator-test
@@ -85,5 +83,4 @@ test-suite Calculator-test
     , parsec
     , threepenny-gui
     , unordered-containers
-    , vector
   default-language: Haskell2010
