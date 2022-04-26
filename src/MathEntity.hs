@@ -168,11 +168,11 @@ module MathEntity (
         show (BoolEntity bool) = show bool
 
     instance DS.DebugString MathEntity where
-        stringify (ScalarEntity scalar) = TP.printf "ScalarEntity: %s" (show scalar)
-        stringify (VectorEntity vector) = TP.printf "VectorEntity: %s" (show vector)
-        stringify (ListEntity list) = TP.printf "ListEntity: %s" (show list)
-        stringify (MatrixEntity matrix) = TP.printf "MatrixEntity: %s" (show matrix)
-        stringify (BoolEntity bool) = TP.printf "BoolEntity: %s" (show bool)
+        stringify scalar@ScalarEntity{} = TP.printf "ScalarEntity: %s" (show scalar)
+        stringify vector@VectorEntity{} = TP.printf "VectorEntity: %s" (show vector)
+        stringify list@ListEntity{} = TP.printf "ListEntity: %s" (show list)
+        stringify matrix@MatrixEntity{} = TP.printf "MatrixEntity: %s" (show matrix)
+        stringify bool@BoolEntity{} = TP.printf "BoolEntity: %s" (show bool)
 
     type UnaryEntityAction = MI.UnaryAction MathEntity MathEntity
     type ErrableUnaryEntityAction = MI.ErrableUnaryAction MathEntity MathEntity
