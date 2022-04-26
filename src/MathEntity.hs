@@ -118,6 +118,9 @@ module MathEntity (
     addRow,
     multRow,
     swapRows,
+    addCol,
+    multCol,
+    swapCols,
     not,
     and,
     or,
@@ -752,6 +755,21 @@ module MathEntity (
     swapRows (MatrixEntity matrix) (ScalarEntity rowIndex1) (ScalarEntity rowIndex2) = MI.unResolve result makeMatrix
         where result = BM.mSwapRows matrix rowIndex1 rowIndex2
     swapRows _ _ _ = MI.withError MI.InvalidType
+
+    addCol :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    addCol (MatrixEntity matrix) (ScalarEntity fromColIndex) (ScalarEntity toColIndex) = MI.unResolve result makeMatrix
+        where result = BM.mAddCol matrix fromColIndex toColIndex
+    addCol _ _ _ = MI.withError MI.InvalidType
+
+    multCol :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    multCol (MatrixEntity matrix) (ScalarEntity multValue) (ScalarEntity colIndex) = MI.unResolve result makeMatrix
+        where result = BM.mMultCol matrix multValue colIndex
+    multCol _ _ _ = MI.withError MI.InvalidType
+
+    swapCols :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    swapCols (MatrixEntity matrix) (ScalarEntity colIndex1) (ScalarEntity colIndex2) = MI.unResolve result makeMatrix
+        where result = BM.mSwapCols matrix colIndex1 colIndex2
+    swapCols _ _ _ = MI.withError MI.InvalidType
 
     not :: MathEntity -> MI.Result MathEntity
     not entity@BoolEntity{}
