@@ -2,10 +2,12 @@
 
 module MathEntity (
     MathEntity,
-    UnaryEntityOperation,
-    ErrableUnaryEntityOperation,
-    BinaryEntityOperation,
-    ErrableBinaryEntityOperation,
+    UnaryEntityAction,
+    ErrableUnaryEntityAction,
+    BinaryEntityAction,
+    ErrableBinaryEntityAction,
+    TernaryEntityAction,
+    ErrableTernaryEntityAction,
     makeScalar,
     makeVector,
     makeList,
@@ -113,15 +115,24 @@ module MathEntity (
     det,
     transpose,
     submatrix,
+    addRow,
+    multRow,
+    swapRows,
     not,
     and,
     or,
-    xor
+    xor,
+    get1,
+    get2,
+    listRepeat,
+    listIncrement
 ) where
     import Prelude hiding (abs, div, mod, rem, lcm, gcd, sqrt, exp, log, logBase, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, atan2, asinh, acosh, atanh, min, max, ceiling, floor, even, odd, sum, concat, not, and, or)
     import qualified GHC.Generics as G
     import qualified Data.Hashable as H
+    import qualified Text.Printf as TP
     import qualified MathInfo as MI
+    import qualified Debug as DS
     import qualified BigScalar as BS
     import qualified BigVector as BV
     import qualified BigList as BL
@@ -147,12 +158,25 @@ module MathEntity (
         hashWithSalt salt (BoolEntity bool) = H.hashWithSalt salt bool
 
     instance Show MathEntity where
-        show entity = "MathEntity:\n" ++ (show entity)
+        show (ScalarEntity scalar) = show scalar
+        show (VectorEntity vector) = show vector
+        show (ListEntity list) = show list
+        show (MatrixEntity matrix) = show matrix
+        show (BoolEntity bool) = show bool
 
-    type UnaryEntityOperation = MI.UnaryOperation MathEntity MathEntity
-    type ErrableUnaryEntityOperation = MI.ErrableUnaryOperation MathEntity MathEntity
-    type BinaryEntityOperation = MI.BinaryOperation MathEntity MathEntity MathEntity
-    type ErrableBinaryEntityOperation = MI.ErrableBinaryOperation MathEntity MathEntity MathEntity
+    instance DS.DebugString MathEntity where
+        stringify (ScalarEntity scalar) = TP.printf "ScalarEntity: %s" (show scalar)
+        stringify (VectorEntity vector) = TP.printf "VectorEntity: %s" (show vector)
+        stringify (ListEntity list) = TP.printf "ListEntity: %s" (show list)
+        stringify (MatrixEntity matrix) = TP.printf "MatrixEntity: %s" (show matrix)
+        stringify (BoolEntity bool) = TP.printf "BoolEntity: %s" (show bool)
+
+    type UnaryEntityAction = MI.UnaryAction MathEntity MathEntity
+    type ErrableUnaryEntityAction = MI.ErrableUnaryAction MathEntity MathEntity
+    type BinaryEntityAction = MI.BinaryAction MathEntity MathEntity MathEntity
+    type ErrableBinaryEntityAction = MI.ErrableBinaryAction MathEntity MathEntity MathEntity
+    type TernaryEntityAction = MI.TernaryAction MathEntity MathEntity MathEntity MathEntity
+    type ErrableTernaryEntityAction = MI.ErrableTernaryAction MathEntity MathEntity MathEntity MathEntity
 
     makeScalar :: BS.BigScalar -> MathEntity
     makeScalar = ScalarEntity
@@ -190,7 +214,7 @@ module MathEntity (
     _falseEntity :: MathEntity
     _falseEntity = makeBool False
 
-    _checkScalarType :: MI.UnaryOperation BS.BigScalar Bool -> MathEntity -> MI.Result MathEntity
+    _checkScalarType :: MI.UnaryAction BS.BigScalar Bool -> MathEntity -> MI.Result MathEntity
     _checkScalarType typeCheck (ScalarEntity scalar) = boolResult $ typeCheck scalar
     _checkScalarType _ _ = MI.withValue _falseEntity
 
@@ -226,7 +250,7 @@ module MathEntity (
     isBool BoolEntity{} = MI.withValue _trueEntity
     isBool _ = MI.withValue _falseEntity
 
-    _coef :: BS.UnaryScalarOperation -> MathEntity -> MI.Result MathEntity
+    _coef :: BS.UnaryScalarAction -> MathEntity -> MI.Result MathEntity
     _coef coefGetter (ScalarEntity scalar) = scalarResult $ coefGetter scalar
     _coef _ _ = MI.withError MI.InvalidType
 
@@ -574,9 +598,9 @@ module MathEntity (
     size _ = MI.withError MI.InvalidType
 
     equalSize :: MathEntity -> MathEntity -> MI.Result MathEntity
-    equalSize (VectorEntity leftVector) (VectorEntity rightVector) = boolResult $ BV.vequalSize leftVector rightVector
-    equalSize (ListEntity leftList) (ListEntity rightList) = boolResult $ BL.lequalSize leftList rightList
-    equalSize (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = boolResult $ BM.mequalSize leftMatrix rightMatrix
+    equalSize (VectorEntity leftVector) (VectorEntity rightVector) = boolResult $ BV.vEqualSize leftVector rightVector
+    equalSize (ListEntity leftList) (ListEntity rightList) = boolResult $ BL.lEqualSize leftList rightList
+    equalSize (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = boolResult $ BM.mEqualSize leftMatrix rightMatrix
     equalSize _ _ = MI.withError MI.InvalidType
 
     rows :: MathEntity -> MI.Result MathEntity
@@ -714,6 +738,21 @@ module MathEntity (
         where result = BM.msub matrix lowIndex highIndex
     submatrix _ _ _ = MI.withError MI.InvalidType
 
+    addRow :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    addRow (MatrixEntity matrix) (ScalarEntity fromRowIndex) (ScalarEntity toRowIndex) = MI.unResolve result makeMatrix
+        where result = BM.mAddRow matrix fromRowIndex toRowIndex
+    addRow _ _ _ = MI.withError MI.InvalidType
+
+    multRow :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    multRow (MatrixEntity matrix) (ScalarEntity multValue) (ScalarEntity rowIndex) = MI.unResolve result makeMatrix
+        where result = BM.mMultRow matrix multValue rowIndex
+    multRow _ _ _ = MI.withError MI.InvalidType
+
+    swapRows :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    swapRows (MatrixEntity matrix) (ScalarEntity rowIndex1) (ScalarEntity rowIndex2) = MI.unResolve result makeMatrix
+        where result = BM.mSwapRows matrix rowIndex1 rowIndex2
+    swapRows _ _ _ = MI.withError MI.InvalidType
+
     not :: MathEntity -> MI.Result MathEntity
     not entity@BoolEntity{}
         | entity == _trueEntity = MI.withValue _falseEntity
@@ -731,3 +770,23 @@ module MathEntity (
     xor :: MathEntity -> MathEntity -> MI.Result MathEntity
     xor (BoolEntity leftBool) (BoolEntity rightBool) = boolResult $ leftBool /= rightBool
     xor _ _ = MI.withError MI.InvalidType
+
+    get1 :: MathEntity -> MathEntity -> MI.Result MathEntity
+    get1 (VectorEntity vec) (ScalarEntity index) = MI.unResolve result makeScalar
+        where result = BV.vget vec index
+    get1 (ListEntity list) (ScalarEntity index) = MI.unResolve result makeScalar
+        where result = BL.lget list index
+    get1 _ _ = MI.withError MI.InvalidType
+
+    get2 :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    get2 (MatrixEntity matrix) (ScalarEntity rowIndex) (ScalarEntity colIndex) = MI.unResolve result makeScalar
+        where result = BM.mget matrix rowIndex colIndex
+    get2 _ _ _ = MI.withError MI.InvalidType
+
+    listRepeat :: MathEntity -> MathEntity -> MI.Result MathEntity
+    listRepeat (ScalarEntity scalar) (ScalarEntity count) = MI.unResolve result makeList
+        where result = BL.lrepeat scalar count
+
+    listIncrement :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    listIncrement (ScalarEntity initial) (ScalarEntity incremental) (ScalarEntity count) = MI.unResolve result makeList
+        where result = BL.lincrement initial incremental count  

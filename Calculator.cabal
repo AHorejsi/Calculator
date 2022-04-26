@@ -6,7 +6,9 @@ cabal-version: 1.12
 
 name:           Calculator
 version:        0.1.0.0
+synopsis:       Calculator
 description:    Please see the README on GitHub at <https://github.com/githubuser/Calculator#readme>
+category:       Desktop
 homepage:       https://github.com/AHorejsi/Calculator#readme
 bug-reports:    https://github.com/AHorejsi/Calculator/issues
 author:         Author name here
@@ -29,6 +31,7 @@ library
       BigMatrix
       BigScalar
       BigVector
+      Debug
       MathEntity
       MathInfo
   other-modules:
