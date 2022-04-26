@@ -460,7 +460,7 @@ module MathEntity (
 
     log10 :: MathEntity -> MI.Result MathEntity
     log10 (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.slog2 scalar
+        where result = BS.slog10 scalar
     log10 _ = MI.withError MI.InvalidType
 
     logBase :: MathEntity -> MathEntity -> MI.Result MathEntity

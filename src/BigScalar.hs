@@ -464,7 +464,7 @@ module BigScalar (
         where realPart = log $ _realPart $ sabs com
               imag0Part = _realPart $ MI.value $ sarg com
     slog quat@(BigQuaternion realVal imag0Val imag1Val imag2Val) = MI.withValue $ splus (MI.value $ slog b) (smult (MI.value $ snorm a) ((MI.value . sacos . MI.value) $ sdiv (real realVal) b))
-        where a = quaternion 0 imag0Val imag1Val imag2Val
+        where a = sVectorPart quat
               b = sabs quat
 
     slog2 :: BigScalar -> MI.Result BigScalar
@@ -611,12 +611,12 @@ module BigScalar (
 
     sceil :: BigScalar -> MI.Result BigScalar
     sceil val@BigInteger{} = MI.withValue val
-    sceil (BigReal realVal) = MI.withValue $ integer $ ceiling realVal
+    sceil (BigReal realVal) = (MI.withValue . integer) $ ceiling realVal
     sceil _ = MI.withError MI.InvalidValue
 
     sfloor :: BigScalar -> MI.Result BigScalar
     sfloor val@BigInteger{} = MI.withValue val
-    sfloor (BigReal realVal) = MI.withValue $ integer $ floor realVal
+    sfloor (BigReal realVal) = (MI.withValue . integer) $ floor realVal
     sfloor _ = MI.withError MI.InvalidValue
 
     sround :: BigScalar -> MI.Result BigScalar
