@@ -33,8 +33,8 @@ module BigVector (
     import qualified Data.Foldable as F
     import qualified Data.Hashable as H
     import qualified Data.HashSet as HS
+    import qualified Stringify as Str
     import qualified MathInfo as MI
-    import qualified Debug as DS
     import qualified BigScalar as BS
     
     newtype BigVector = BigVector {
@@ -45,12 +45,12 @@ module BigVector (
         hashWithSalt salt (BigVector pos) = H.hashWithSalt salt (F.toList pos)
 
     instance Show BigVector where
-        show vec = TP.printf "<%s>" str
+        show vec = TP.printf "Vector[%s]" str
             where str = _str vec show
 
-    instance DS.DebugString BigVector where
-        stringify vec = TP.printf "Vector[%s]" str
-            where str = _str vec DS.stringify
+    instance Str.Stringifier BigVector where
+        stringify vec = TP.printf "<%s>" str
+            where str = _str vec Str.stringify
 
     _str :: BigVector -> (BS.BigScalar -> String) -> String
     _str (BigVector pos) converter = F.foldl' (++) "" commaSeparated

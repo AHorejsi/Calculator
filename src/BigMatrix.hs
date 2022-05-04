@@ -46,8 +46,8 @@ module BigMatrix (
     import qualified Data.Sequence as S
     import qualified Data.Foldable as F
     import qualified Data.Hashable as H
+    import qualified Stringify as Str
     import qualified MathInfo as MI
-    import qualified Debug as DS
     import qualified BigScalar as BS
     import qualified BigVector as BV
 
@@ -61,10 +61,10 @@ module BigMatrix (
         hashWithSalt salt (BigMatrix table _ _) = H.hashWithSalt salt (F.toList table)
 
     instance Show BigMatrix where
-        show (BigMatrix table rows cols) = TP.printf "[%s]" (_str table show rows cols)
+        show (BigMatrix table rows cols) = TP.printf "Matrix[%s]" (_str table show rows cols)
 
-    instance DS.DebugString BigMatrix where
-        stringify (BigMatrix table rows cols) = TP.printf "Matrix[%s]" (_str table DS.stringify rows cols)
+    instance Str.Stringifier BigMatrix where
+        stringify (BigMatrix table rows cols) = TP.printf "[%s]" (_str table Str.stringify rows cols)
 
     _str :: S.Seq BS.BigScalar -> (BS.BigScalar -> String) -> Int -> Int -> String
     _str table converter rowsLeft totalCols = case rowsLeft of 0 -> ""
@@ -233,7 +233,8 @@ module BigMatrix (
     mdiv left right
         | not $ mIsSquare right = MI.withError MI.InvalidState
         | not $ isMatrixMultipliable left right = MI.withError MI.InvalidValue
-        | otherwise = mmult left (MI.value $ minv right)
+        | otherwise = MI.errBinResolveRight left invResult mmult
+        where invResult = minv right
 
     mneg :: BigMatrix -> BigMatrix
     mneg = smultm BS.negOne

@@ -35,7 +35,7 @@ module MathInfo (
     import qualified Text.Printf as TP
     import qualified Data.Foldable as F
     import qualified Data.List as L
-    import qualified Debug as DS
+    import qualified Stringify as Str
 
     data Error =
         InvalidState |
@@ -59,13 +59,14 @@ module MathInfo (
     instance H.Hashable Error where
         hashWithSalt salt value = H.hashWithSalt salt (fromEnum value)
 
-    instance DS.DebugString Error
+    instance Str.Stringifier Error where
+        stringify err = show err
 
     instance (Show a) => Show (Result a) where
         show result = _str result show show
 
-    instance (DS.DebugString a) => DS.DebugString (Result a) where
-        stringify result = _str result DS.stringify DS.stringify
+    instance (Str.Stringifier a) => Str.Stringifier (Result a) where
+        stringify result = _str result Str.stringify Str.stringify
 
     _str :: Result a -> (a -> String) -> (Error -> String) -> String
     _str (Success val) valueConverter _ = TP.printf "Success { %s }" (valueConverter val)

@@ -31,6 +31,7 @@ module MathEntity (
     imag0Coef,
     imag1Coef,
     imag2Coef,
+    vectorPart,
     plus,
     plusPad,
     minus,
@@ -128,14 +129,17 @@ module MathEntity (
     get1,
     get2,
     listRepeat,
-    listIncrement
+    listIncrement,
+    matrixRepeat,
+    identity
 ) where
     import Prelude hiding (abs, div, mod, rem, lcm, gcd, sqrt, exp, log, logBase, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, atan2, asinh, acosh, atanh, min, max, ceiling, floor, even, odd, sum, concat, not, and, or)
     import qualified GHC.Generics as G
+    import qualified Data.Char as C
     import qualified Data.Hashable as H
     import qualified Text.Printf as TP
+    import qualified Stringify as Str
     import qualified MathInfo as MI
-    import qualified Debug as DS
     import qualified BigScalar as BS
     import qualified BigVector as BV
     import qualified BigList as BL
@@ -161,18 +165,21 @@ module MathEntity (
         hashWithSalt salt (BoolEntity bool) = H.hashWithSalt salt bool
 
     instance Show MathEntity where
-        show (ScalarEntity scalar) = show scalar
-        show (VectorEntity vector) = show vector
-        show (ListEntity list) = show list
-        show (MatrixEntity matrix) = show matrix
-        show (BoolEntity bool) = show bool
+        show scalar@ScalarEntity{} = TP.printf "ScalarEntity: %s" (show scalar)
+        show vector@VectorEntity{} = TP.printf "VectorEntity: %s" (show vector)
+        show list@ListEntity{} = TP.printf "ListEntity: %s" (show list)
+        show matrix@MatrixEntity{} = TP.printf "MatrixEntity: %s" (show matrix)
+        show bool@BoolEntity{} = TP.printf "BoolEntity: %s" (show bool)
 
-    instance DS.DebugString MathEntity where
-        stringify scalar@ScalarEntity{} = TP.printf "ScalarEntity: %s" (show scalar)
-        stringify vector@VectorEntity{} = TP.printf "VectorEntity: %s" (show vector)
-        stringify list@ListEntity{} = TP.printf "ListEntity: %s" (show list)
-        stringify matrix@MatrixEntity{} = TP.printf "MatrixEntity: %s" (show matrix)
-        stringify bool@BoolEntity{} = TP.printf "BoolEntity: %s" (show bool)
+    instance Str.Stringifier MathEntity where
+        stringify (ScalarEntity scalar) = Str.stringify scalar
+        stringify (VectorEntity vector) = Str.stringify vector
+        stringify (ListEntity list) = Str.stringify list
+        stringify (MatrixEntity matrix) = Str.stringify matrix
+        stringify (BoolEntity bool) = (C.toLower first) : rest
+            where str = show bool
+                  first = head str
+                  rest = tail str
 
     type UnaryEntityAction = MI.UnaryAction MathEntity MathEntity
     type ErrableUnaryEntityAction = MI.ErrableUnaryAction MathEntity MathEntity
@@ -268,6 +275,10 @@ module MathEntity (
 
     imag2Coef :: MathEntity -> MI.Result MathEntity
     imag2Coef = _coef BS.sImag2Coef
+
+    vectorPart :: MathEntity -> MI.Result MathEntity
+    vectorPart (ScalarEntity scalar) = scalarResult $ BS.sVectorPart scalar
+    vectorPart _ = MI.withError MI.InvalidType
 
     plus :: MathEntity -> MathEntity -> MI.Result MathEntity
     plus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = scalarResult $ BS.splus leftScalar rightScalar
@@ -807,4 +818,13 @@ module MathEntity (
 
     listIncrement :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
     listIncrement (ScalarEntity initial) (ScalarEntity incremental) (ScalarEntity count) = MI.unResolve result makeList
-        where result = BL.lincrement initial incremental count  
+        where result = BL.lincrement initial incremental count
+
+    matrixRepeat :: MathEntity -> MathEntity -> MathEntity -> MI.Result MathEntity
+    matrixRepeat (ScalarEntity value) (ScalarEntity rows) (ScalarEntity cols) = MI.unResolve result makeMatrix
+        where result = BM.mrepeat value rows cols
+    matrixRepeat _ _ _ = MI.withError MI.InvalidType
+
+    identity :: MathEntity -> MI.Result MathEntity
+    identity (ScalarEntity dimensions) = MI.unResolve result makeMatrix
+        where result = BM.midentity dimensions

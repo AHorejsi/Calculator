@@ -31,9 +31,10 @@ library
       BigMatrix
       BigScalar
       BigVector
-      Debug
       MathEntity
       MathInfo
+      Parse
+      Stringify
   other-modules:
       Paths_Calculator
   hs-source-dirs:

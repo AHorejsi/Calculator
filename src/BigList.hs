@@ -62,8 +62,8 @@ module BigList (
     import qualified Data.Hashable as H
     import qualified Data.HashSet as HS
     import qualified Data.HashMap.Lazy as HM
+    import qualified Stringify as Str
     import qualified MathInfo as MI
-    import qualified Debug as DS
     import qualified BigScalar as BS
 
     newtype BigList = BigList {
@@ -76,8 +76,9 @@ module BigList (
     instance Show BigList where
         show list = _str list show
 
-    instance DS.DebugString BigList where
-        stringify list = _str list DS.stringify
+    instance Str.Stringifier BigList where
+        stringify list = TP.printf "{%s}" result
+            where result = _str list Str.stringify
 
     _str :: BigList -> (BS.BigScalar -> String) -> String
     _str (BigList pos) converter = F.foldl' (++) "" commaSeparated
