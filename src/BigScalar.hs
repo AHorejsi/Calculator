@@ -94,7 +94,6 @@ module BigScalar (
     import qualified Data.HashSet as HS
     import qualified Data.Number.Fixed as F
     import qualified MathInfo as MI
-    import qualified Actions as A
     import qualified Stringify as Str
     
     type BigInt_ = Integer
