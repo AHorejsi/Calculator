@@ -13,7 +13,7 @@ module Parse (
         Empty
         deriving (Eq, Show)
 
-    data ParserError =
+    data SyntaxError =
         InputEnd |
         UnexpectedInput |
         InvalidSyntax |
@@ -21,10 +21,10 @@ module Parse (
         deriving (Enum, Eq, Show)
 
     data ParseResult = OkParse {
-        parsed :: ME.MathEntity,
-        rest :: String
+        _parsed :: ME.MathEntity,
+        _rest :: String
     } | BadParse {
-        err :: ParserError
+        _err :: SyntaxError
     }
 
     newtype Parser i e a = Parser {
