@@ -13,6 +13,20 @@ module Parse (
         Empty
         deriving (Eq, Show)
 
+    data ParserError =
+        InputEnd |
+        UnexpectedInput |
+        InvalidSyntax |
+        Null
+        deriving (Enum, Eq, Show)
+
+    data ParseResult = OkParse {
+        parsed :: ME.MathEntity,
+        rest :: String
+    } | BadParse {
+        err :: ParserError
+    }
+
     newtype Parser i e a = Parser {
         runParser :: [i] -> Either [ParseError i e] (a, [i])
     }

@@ -57,10 +57,10 @@ module BigVector (
         where stringList = fmap converter pos
               commaSeparated = S.intersperse "," stringList
 
-    vlist :: [BS.BigScalar] -> MI.Result BigVector
+    vlist :: [BS.BigScalar] -> MI.ComputationResult BigVector
     vlist list = vseq $ S.fromList list
 
-    vseq :: S.Seq BS.BigScalar -> MI.Result BigVector
+    vseq :: S.Seq BS.BigScalar -> MI.ComputationResult BigVector
     vseq vals
         | F.any BS.isExactQuaternion vals = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigVector vals
@@ -77,41 +77,41 @@ module BigVector (
     vIsNull :: BigVector -> Bool
     vIsNull (BigVector pos) = F.all (==BS.zero) pos
 
-    vgetInt :: BigVector -> Int -> MI.Result BS.BigScalar
+    vgetInt :: BigVector -> Int -> MI.ComputationResult BS.BigScalar
     vgetInt vec@(BigVector pos) index
         | index < 0 || index >= size = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ S.index pos index
         where size = vlength vec
 
-    vget :: BigVector -> BS.BigScalar -> MI.Result BS.BigScalar
+    vget :: BigVector -> BS.BigScalar -> MI.ComputationResult BS.BigScalar
     vget vec index
         | not $ BS.isExactInteger index = MI.withError MI.InvalidValue
         | otherwise = vgetInt vec intIndex
         where intIndex = BS.asBuiltInInt index
 
-    vplus :: BigVector -> BigVector -> MI.Result BigVector
+    vplus :: BigVector -> BigVector -> MI.ComputationResult BigVector
     vplus = _binaryOperation BS.splus
 
-    vminus :: BigVector -> BigVector -> MI.Result BigVector
+    vminus :: BigVector -> BigVector -> MI.ComputationResult BigVector
     vminus = _binaryOperation BS.sminus
 
-    _binaryOperation :: BS.BinaryScalarAction -> BigVector -> BigVector -> MI.Result BigVector
+    _binaryOperation :: BS.BinaryScalarAction -> BigVector -> BigVector -> MI.ComputationResult BigVector
     _binaryOperation operation left@(BigVector leftPos) right@(BigVector rightPos)
         | not $ vEqualSize left right = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . BigVector) $ S.zipWith operation leftPos rightPos
 
-    smultv :: BS.BigScalar -> BigVector -> MI.Result BigVector
+    smultv :: BS.BigScalar -> BigVector -> MI.ComputationResult BigVector
     smultv left right@(BigVector rightPos)
         | BS.isExactQuaternion left = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . BigVector) $ fmap (BS.smult left) rightPos
 
-    vmults :: BigVector -> BS.BigScalar -> MI.Result BigVector
+    vmults :: BigVector -> BS.BigScalar -> MI.ComputationResult BigVector
     vmults = flip smultv
 
-    vscale :: BigVector -> BigVector -> MI.Result BigVector
+    vscale :: BigVector -> BigVector -> MI.ComputationResult BigVector
     vscale = _binaryOperation BS.smult
 
-    vdot :: BigVector -> BigVector -> MI.Result BS.BigScalar
+    vdot :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     vdot left@(BigVector leftPos) right@(BigVector rightPos)
         | not $ vEqualSize left right = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . _sum) $ S.zipWith BS.smult leftPos rightPos
@@ -119,7 +119,7 @@ module BigVector (
     _sum :: S.Seq BS.BigScalar -> BS.BigScalar
     _sum = F.foldr BS.splus BS.zero
 
-    vcross :: BigVector -> BigVector -> MI.Result BigVector
+    vcross :: BigVector -> BigVector -> MI.ComputationResult BigVector
     vcross left right
         | 3 == leftSize && leftSize == rightSize = vlist [resultXPos, resultYPos, resultZPos]
         | otherwise = MI.withError MI.InvalidValue
@@ -135,7 +135,7 @@ module BigVector (
               resultYPos = BS.sminus (BS.smult leftZPos rightXPos) (BS.smult leftXPos rightZPos)
               resultZPos = BS.sminus (BS.smult leftXPos rightYPos) (BS.smult leftYPos rightXPos)
 
-    vdivs :: BigVector -> BS.BigScalar -> MI.Result BigVector
+    vdivs :: BigVector -> BS.BigScalar -> MI.ComputationResult BigVector
     vdivs left right
         | BS.zero == right = MI.withError MI.InvalidValue
         | otherwise = vmults left rightInv
@@ -147,12 +147,12 @@ module BigVector (
     vabs :: BigVector -> BS.BigScalar
     vabs vec = (BS.ssqrt . MI.value) $ vdot vec vec
 
-    vnorm :: BigVector -> MI.Result BigVector
+    vnorm :: BigVector -> MI.ComputationResult BigVector
     vnorm vec
         | vIsNull vec = MI.withError MI.InvalidValue
         | otherwise = vdivs vec (vabs vec)
 
-    vdist :: BigVector -> BigVector -> MI.Result BS.BigScalar
+    vdist :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     vdist left right
         | MI.isFailure subtResult = MI.convert subtResult
         | otherwise = (MI.withValue . BS.ssqrt . _sum) $ fmap square (_pos subtValue)
@@ -160,7 +160,7 @@ module BigVector (
               subtValue = MI.value subtResult
               square = MI.value . ((flip BS.spow) BS.two)
 
-    vangle :: BigVector -> BigVector -> MI.Result BS.BigScalar
+    vangle :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     vangle left right
         | (not $ vEqualSize left right) || (vIsNull left) || (vIsNull right) = MI.withError MI.InvalidValue
         | otherwise = (BS.sacos . MI.value) $ BS.sdiv dotProd absProd
