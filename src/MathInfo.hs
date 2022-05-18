@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module MathInfo (
     ComputationError(
         InvalidValue,
@@ -13,6 +11,12 @@ module MathInfo (
     ErrableBinaryAction,
     TernaryAction,
     ErrableTernaryAction,
+    UnaryPredicate,
+    ErrableUnaryPredicate,
+    BinaryPredicate,
+    ErrableBinaryPredicate,
+    TernaryPredicate,
+    ErrableTernaryPredicate,
     withValue,
     withError,
     withErrorSet,
@@ -20,6 +24,9 @@ module MathInfo (
     isFailure,
     value,
     errorSet,
+    unaryNonerror,
+    binaryNonerror,
+    ternaryNonerror,
     unResolve,
     binResolveLeft,
     binResolveRight,
@@ -35,7 +42,6 @@ module MathInfo (
     import qualified Text.Printf as TP
     import qualified Data.Foldable as F
     import qualified Data.List as L
-    import qualified Stringify as Str
 
     data ComputationError =
         InvalidState |
@@ -47,8 +53,6 @@ module MathInfo (
         _val :: a
     } | FailedComputation {
         _errors :: HS.HashSet ComputationError
-
-
     } deriving (Eq)
 
     type UnaryAction a b = a -> b
@@ -58,17 +62,15 @@ module MathInfo (
     type TernaryAction a b c d = a -> b -> c -> d
     type ErrableTernaryAction a b c d = a -> b -> c -> ComputationResult d
 
+    type UnaryPredicate a = UnaryAction a Bool
+    type ErrableUnaryPredicate a = ErrableUnaryAction a Bool
+    type BinaryPredicate a b = BinaryAction a b Bool
+    type ErrableBinaryPredicate a b = ErrableBinaryAction a b Bool
+    type TernaryPredicate a b c = TernaryAction a b c Bool
+    type ErrableTernaryPredicate a b c = ErrableTernaryAction a b c Bool
+
     instance H.Hashable ComputationError where
         hashWithSalt salt value = H.hashWithSalt salt (fromEnum value)
-
-    instance Str.Stringifier ComputationError where
-        stringify err = show err
-
-    instance (Show a) => Show (ComputationResult a) where
-        show result = _str result show show
-
-    instance (Str.Stringifier a) => Str.Stringifier (ComputationResult a) where
-        stringify result = _str result Str.stringify Str.stringify
 
     _str :: ComputationResult a -> (a -> String) -> (ComputationError -> String) -> String
     _str (SuccessfulComputation val) valueConverter _ = TP.printf "SuccessfulComputation { %s }" (valueConverter val)
@@ -105,6 +107,15 @@ module MathInfo (
 
     isFailure :: ComputationResult a -> Bool
     isFailure = not . isSuccess
+
+    unaryNonerror :: ErrableUnaryAction a b -> UnaryAction a b
+    unaryNonerror action val = value $ action val
+
+    binaryNonerror :: ErrableBinaryAction a b c -> BinaryAction a b c
+    binaryNonerror action left right = value $ action left right
+
+    ternaryNonerror :: ErrableTernaryAction a b c d -> TernaryAction a b c d
+    ternaryNonerror action first second third = value $ action first second third
 
     unResolve :: ComputationResult a -> UnaryAction a b -> ComputationResult b
     unResolve (SuccessfulComputation val) func = withValue $ func val

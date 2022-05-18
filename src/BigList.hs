@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant bracket" #-}
 
 module BigList (
     BigList,
@@ -13,11 +15,10 @@ module BigList (
     lget,
     splusl,
     lpluss,
-    lplus,
     lplusPad,
+    lminus,
     sminusl,
     lminuss,
-    lminus,
     lminusPad,
     smultl,
     lmults,
@@ -62,6 +63,7 @@ module BigList (
     import qualified Data.Hashable as H
     import qualified Data.HashSet as HS
     import qualified Data.HashMap.Lazy as HM
+    import qualified Actions as A
     import qualified Stringify as Str
     import qualified MathInfo as MI
     import qualified BigScalar as BS
@@ -74,14 +76,17 @@ module BigList (
         hashWithSalt salt (BigList vals) = H.hashWithSalt salt (F.toList vals)
 
     instance Show BigList where
-        show list = _str list show
+        show list = _str "List[%s]" list show
 
     instance Str.Stringifier BigList where
-        stringify list = TP.printf "{%s}" result
-            where result = _str list Str.stringify
+        stringify sets list = _str "{%s}" list (Str.stringify sets)
 
-    _str :: BigList -> (BS.BigScalar -> String) -> String
-    _str (BigList pos) converter = F.foldl' (++) "" commaSeparated
+    _str :: String -> BigList -> MI.UnaryAction BS.BigScalar String -> String
+    _str format list converter = TP.printf format strVal
+        where strVal = _strHelper list converter
+
+    _strHelper :: BigList -> MI.UnaryAction BS.BigScalar String -> String
+    _strHelper (BigList pos) converter = concat commaSeparated
         where stringList = fmap converter pos
               commaSeparated = S.intersperse "," stringList
 
@@ -99,19 +104,19 @@ module BigList (
         | not $ BS.isExactInteger count = MI.withError MI.InvalidType
         | intCount < 0 = MI.withError MI.InvalidValue
         | otherwise =  MI.withValue $ _pad intCount scalar lempty
-        where intCount = BS.asBuiltInInt count
+        where intCount = BS.asInt count
 
     lincrement :: BS.BigScalar -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigList
     lincrement initial increment count
         | not $ BS.isExactInteger count = MI.withError MI.InvalidType
         | intCount < 0 = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigList $ _computeRange initial increment intCount
-        where intCount = BS.asBuiltInInt count
+        where intCount = BS.asInt count
     
     _computeRange :: BS.BigScalar -> BS.BigScalar -> Int -> S.Seq BS.BigScalar
     _computeRange _ _ 0 = S.empty
     _computeRange current increment count = current S.<| next
-        where elem = BS.splus current increment
+        where elem = A.unsafePlus current increment
               next = _computeRange elem increment (count - 1)
 
     lsize :: BigList -> BS.BigScalar
@@ -129,111 +134,112 @@ module BigList (
         | M.isNothing gotten = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ M.fromJust gotten
         where gotten = vals S.!? intIndex
-              intIndex = BS.asBuiltInInt index
+              intIndex = BS.asInt index
 
     splusl :: BS.BigScalar -> BigList -> BigList
-    splusl left = _unaryOperation (BS.splus left)
+    splusl left = _unaryAction (A.unsafePlus left)
 
     lpluss :: BigList -> BS.BigScalar -> BigList
     lpluss = flip splusl
 
-    lplus :: BigList -> BigList -> MI.ComputationResult BigList
-    lplus = _binaryOperation BS.splus
+    instance A.Addable BigList where
+        plus = _binaryAction A.unsafePlus
 
     lplusPad :: BS.BigScalar -> BigList -> BigList -> BigList
-    lplusPad = _binaryOperationPad BS.splus
+    lplusPad = _binaryActionPad A.unsafePlus
 
     sminusl :: BS.BigScalar -> BigList -> BigList
-    sminusl left = _unaryOperation (BS.sminus left)
+    sminusl left = _unaryAction (BS.sminus left)
 
     lminuss :: BigList -> BS.BigScalar -> BigList
-    lminuss left right = _unaryOperation ((flip BS.sminus) right) left
+    lminuss left right = _unaryAction ((flip BS.sminus) right) left
 
     lminus :: BigList -> BigList -> MI.ComputationResult BigList
-    lminus = _binaryOperation BS.sminus
+    lminus = _binaryAction BS.sminus
 
     lminusPad :: BS.BigScalar -> BigList -> BigList -> BigList
-    lminusPad = _binaryOperationPad BS.sminus
+    lminusPad = _binaryActionPad BS.sminus
 
     smultl :: BS.BigScalar -> BigList -> BigList
-    smultl left = _unaryOperation (BS.smult left)
+    smultl left = _unaryAction (BS.smult left)
 
     lmults :: BigList -> BS.BigScalar -> BigList
-    lmults left right = _unaryOperation ((flip BS.smult) right) left
+    lmults left right = _unaryAction ((flip BS.smult) right) left
 
     lmult :: BigList -> BigList -> MI.ComputationResult BigList
-    lmult = _binaryOperation BS.smult
+    lmult = _binaryAction BS.smult
 
     lmultPad :: BS.BigScalar -> BigList -> BigList -> BigList
-    lmultPad = _binaryOperationPad BS.smult
+    lmultPad = _binaryActionPad BS.smult
 
     sdivl :: BS.BigScalar -> BigList -> MI.ComputationResult BigList
-    sdivl left = _errableUnaryOperation (BS.sdiv left)
+    sdivl left = _errableUnaryAction (BS.sdiv left)
 
     ldivs :: BigList -> BS.BigScalar -> MI.ComputationResult BigList
-    ldivs left right = _errableUnaryOperation ((flip BS.sdiv) right) left
+    ldivs left right = _errableUnaryAction ((flip BS.sdiv) right) left
 
     ldiv :: BigList -> BigList -> MI.ComputationResult BigList
-    ldiv = _errableBinaryOperation BS.sdiv
+    ldiv = _errableBinaryAction BS.sdiv
     
     ldivPad :: BS.BigScalar -> BigList -> BigList -> MI.ComputationResult BigList
-    ldivPad = _errableBinaryOperationPad BS.sdiv
+    ldivPad = _errableBinaryActionPad BS.sdiv
 
     spowl :: BS.BigScalar -> BigList -> MI.ComputationResult BigList
-    spowl left = _errableUnaryOperation (BS.spow left)
+    spowl left = _errableUnaryAction (BS.spow left)
 
     lpows :: BigList -> BS.BigScalar -> MI.ComputationResult BigList
-    lpows left right = _errableUnaryOperation ((flip BS.spow) right) left
+    lpows left right = _errableUnaryAction ((flip BS.spow) right) left
 
     lpow :: BigList -> BigList -> MI.ComputationResult BigList
-    lpow = _errableBinaryOperation BS.spow
+    lpow = _errableBinaryAction BS.spow
 
     lpowPad :: BS.BigScalar -> BigList -> BigList -> MI.ComputationResult BigList
-    lpowPad = _errableBinaryOperationPad BS.spow
+    lpowPad = _errableBinaryActionPad BS.spow
 
     lneg :: BigList -> BigList
     lneg = smultl BS.negOne
 
-    _unaryOperation :: BS.UnaryScalarAction -> BigList -> BigList
-    _unaryOperation operation (BigList vals) = BigList $ fmap operation vals
+    _unaryAction :: BS.UnaryScalarAction -> BigList -> BigList
+    _unaryAction action (BigList vals) = BigList $ fmap action vals
 
-    _errableUnaryOperation :: BS.ErrableUnaryScalarAction -> BigList -> MI.ComputationResult BigList
-    _errableUnaryOperation operation (BigList vals)
-        | S.null errors = MI.withValue $ BigList $ fmap MI.value result
+    _errableUnaryAction :: BS.ErrableUnaryScalarAction -> BigList -> MI.ComputationResult BigList
+    _errableUnaryAction action (BigList vals)
+        | S.null errors = (MI.withValue . BigList) $ fmap MI.value result
         | otherwise = MI.withErrorSet $ HS.unions $ F.toList $ fmap MI.errorSet errors
-        where result = fmap operation vals
+        where result = fmap action vals
               errors = S.filter MI.isSuccess result
 
-    _binaryOperation :: BS.BinaryScalarAction -> BigList -> BigList -> MI.ComputationResult BigList
-    _binaryOperation operation left@(BigList leftVals) right@(BigList rightVals)
+    _binaryAction :: BS.BinaryScalarAction -> BigList -> BigList -> MI.ComputationResult BigList
+    _binaryAction action left@(BigList leftVals) right@(BigList rightVals)
         | not $ lEqualSize left right = MI.withError MI.InvalidValue
-        | otherwise = MI.withValue $ BigList $ S.zipWith operation leftVals rightVals
+        | otherwise = MI.withValue $ BigList $ S.zipWith action leftVals rightVals
 
-    _binaryOperationPad :: BS.BinaryScalarAction -> BS.BigScalar -> BigList -> BigList -> BigList
-    _binaryOperationPad operation scalar left right = MI.value $ _binaryOperation operation leftPadded rightPadded
+    _binaryActionPad :: BS.BinaryScalarAction -> BS.BigScalar -> BigList -> BigList -> BigList
+    _binaryActionPad action padVal left right = MI.value $ _binaryAction action leftPadded rightPadded
         where leftSize = llength left
               rightSize = llength right
               sizeDiff = abs $ leftSize - rightSize
-              leftPadded = if leftSize < rightSize then _pad sizeDiff scalar left else left
-              rightPadded = if leftSize > rightSize then _pad sizeDiff scalar right else right
+              leftPadded = if leftSize < rightSize then _pad sizeDiff padVal left else left
+              rightPadded = if leftSize > rightSize then _pad sizeDiff padVal right else right
 
-    _errableBinaryOperation :: BS.ErrableBinaryScalarAction -> BigList -> BigList -> MI.ComputationResult BigList
-    _errableBinaryOperation operation (BigList leftVals) (BigList rightVals)
-        | S.null errors = MI.withValue $ BigList $ fmap MI.value result
-        | otherwise = MI.withErrorSet $ HS.unions $ F.toList $ fmap MI.errorSet errors
-        where result = S.zipWith operation leftVals rightVals
+    _errableBinaryAction :: BS.ErrableBinaryScalarAction -> BigList -> BigList -> MI.ComputationResult BigList
+    _errableBinaryAction action (BigList leftVals) (BigList rightVals)
+        | S.null errors = (MI.withValue . BigList) $ fmap MI.value result
+        | otherwise = (MI.withErrorSet . HS.unions . F.toList) $ fmap MI.errorSet errors
+        where result = S.zipWith action leftVals rightVals
               errors = S.filter MI.isSuccess result
 
-    _errableBinaryOperationPad :: BS.ErrableBinaryScalarAction -> BS.BigScalar -> BigList -> BigList -> MI.ComputationResult BigList
-    _errableBinaryOperationPad operation scalar left right = _errableBinaryOperation operation leftPadded rightPadded
+    _errableBinaryActionPad :: BS.ErrableBinaryScalarAction -> BS.BigScalar -> BigList -> BigList -> MI.ComputationResult BigList
+    _errableBinaryActionPad action padVal left right = _errableBinaryAction action leftPadded rightPadded
         where leftSize = llength left
               rightSize = llength right
               sizeDiff = abs $ leftSize - rightSize
-              leftPadded = if leftSize < rightSize then _pad sizeDiff scalar left else left
-              rightPadded = if leftSize > rightSize then _pad sizeDiff scalar right else right
+              leftPadded = if leftSize < rightSize then _pad sizeDiff padVal left else left
+              rightPadded = if leftSize > rightSize then _pad sizeDiff padVal right else right
 
     _pad :: Int -> BS.BigScalar -> BigList -> BigList
-    _pad amount scalar (BigList vals) = BigList $ vals S.>< (S.replicate amount scalar)
+    _pad amount padVal (BigList vals) = BigList $ vals S.>< padValList
+        where padValList = S.replicate amount padVal
 
     lminimum :: BigList -> MI.ComputationResult BS.BigScalar
     lminimum (BigList vals)
@@ -251,20 +257,20 @@ module BigList (
 
     _lminmaxHelper :: BS.ErrableBinaryScalarAction -> BS.BigScalar -> S.Seq BS.BigScalar -> MI.ComputationResult BS.BigScalar
     _lminmaxHelper func best vals
-        | MI.isFailure newBest = MI.withError MI.InvalidValue
-        | otherwise = _lminmaxHelper func (MI.value newBest) rest
+        | S.null vals = MI.withValue best
+        | otherwise = _lminmaxHelper func newBest rest
         where headVal = S.index vals 0
               rest = S.drop 1 vals
-              newBest = func best headVal
+              newBest = MI.value $ func best headVal
 
     _containsNonreal :: S.Seq BS.BigScalar -> Bool
     _containsNonreal seq = or $ fmap (not . BS.sIsReal) seq
 
     lsum :: BigList -> BS.BigScalar
-    lsum (BigList vals) = F.foldr BS.splus BS.zero vals
+    lsum (BigList vals) = F.foldr A.unsafePlus BS.zero vals
 
     lcumsum :: BigList -> BigList
-    lcumsum (BigList vals) = BigList $ S.scanl BS.splus headVal rest
+    lcumsum (BigList vals) = BigList $ S.scanl A.unsafePlus headVal rest
         where headVal = S.index vals 0
               rest = S.drop 1 vals
 
@@ -309,7 +315,7 @@ module BigList (
     lmedian list@(BigList vals)
         | 0 == listSize = MI.withError MI.InvalidState
         | _containsNonreal vals = MI.withError MI.InvalidType
-        | even listSize = BS.sdiv (BS.splus (_quickSelect (halfSize - 1) vals) (_quickSelect halfSize vals)) BS.two
+        | even listSize = BS.sdiv (A.unsafePlus (_quickSelect (halfSize - 1) vals) (_quickSelect halfSize vals)) BS.two
         | otherwise = MI.withValue $ _quickSelect halfSize vals
         where listSize = llength list
               halfSize = div listSize 2
@@ -337,7 +343,7 @@ module BigList (
         | otherwise = MI.errBinResolveLeft minmaxSum BS.two BS.sdiv
         where minValue = lminimum list
               maxValue = lmaximum list
-              minmaxSum = MI.binCombine minValue maxValue BS.splus
+              minmaxSum = MI.binCombine minValue maxValue A.unsafePlus
 
     lmode :: BigList -> BigList
     lmode (BigList vals)
@@ -362,12 +368,12 @@ module BigList (
     lsortDesc :: BigList -> MI.ComputationResult BigList
     lsortDesc (BigList vals) = _lmergeSortHelper1 BS.sGreaterEqual vals
 
-    _lmergeSortHelper1 :: BS.ErrableComparisonAction -> S.Seq BS.BigScalar -> MI.ComputationResult BigList
+    _lmergeSortHelper1 :: MI.ErrableBinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> MI.ComputationResult BigList
     _lmergeSortHelper1 ordFunc vals
         | _containsNonreal vals = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ lseq $ _lmergeSortHelper2 (\left right -> MI.value $ ordFunc left right) vals
 
-    _lmergeSortHelper2 :: BS.ComparisonAction -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar
+    _lmergeSortHelper2 :: MI.BinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar
     _lmergeSortHelper2 ordFunc vals
         | size < 2 = vals
         | otherwise = _merge ordFunc (_lmergeSortHelper2 ordFunc left) (_lmergeSortHelper2 ordFunc right)
@@ -375,7 +381,7 @@ module BigList (
               halfLength = div size 2
               (left, right) = S.splitAt halfLength vals
 
-    _merge :: BS.ComparisonAction -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar
+    _merge :: MI.BinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar
     _merge ordFunc left right
         | S.null left = right
         | S.null right = left
@@ -392,12 +398,12 @@ module BigList (
     lIsSortedDesc :: BigList -> MI.ComputationResult Bool
     lIsSortedDesc (BigList vals) = _lIsSortedHelper1 vals BS.sGreaterEqual
 
-    _lIsSortedHelper1 :: S.Seq BS.BigScalar -> BS.ErrableComparisonAction -> MI.ComputationResult Bool
+    _lIsSortedHelper1 :: S.Seq BS.BigScalar -> MI.ErrableBinaryPredicate BS.BigScalar BS.BigScalar -> MI.ComputationResult Bool
     _lIsSortedHelper1 vals ordFunc
         | _containsNonreal vals = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ _lIsSortedHelper2 vals (\left right -> MI.value $ ordFunc left right)
 
-    _lIsSortedHelper2 :: S.Seq BS.BigScalar -> BS.ComparisonAction -> Bool
+    _lIsSortedHelper2 :: S.Seq BS.BigScalar -> MI.BinaryPredicate BS.BigScalar BS.BigScalar -> Bool
     _lIsSortedHelper2 vals ordFunc
         | (F.length vals) <= 1 = True
         | otherwise = (ordFunc elem next) && (_lIsSortedHelper2 rest ordFunc)
@@ -417,8 +423,8 @@ module BigList (
         | lowIndexInt < 0 || lowIndexInt >= listSize || highIndexInt < 0 || highIndexInt >= listSize || lowIndexInt > highIndexInt = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ lseq sublist
         where listSize = llength list
-              lowIndexInt = BS.asBuiltInInt lowIndex
-              highIndexInt = BS.asBuiltInInt highIndex
+              lowIndexInt = BS.asInt lowIndex
+              highIndexInt = BS.asInt highIndex
               sublist = S.take (highIndexInt - lowIndexInt) (S.drop lowIndexInt vals)
 
     lconcat :: BigList -> BigList -> BigList

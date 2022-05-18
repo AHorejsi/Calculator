@@ -26,8 +26,8 @@ dependencies:
 - unordered-containers
 - hashtables
 - numbers
-- threepenny-gui
 - parsec
+- threepenny-gui
 
 library:
   source-dirs: src
@@ -55,3 +55,5 @@ tests:
     - -O2
     dependencies:
     - Calculator
+    - vscode-haskell-config
+    - QuickCheck

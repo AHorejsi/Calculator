@@ -1,4 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant bracket" #-}
+{-# HLINT ignore "Move brackets to avoid $" #-}
 
 module BigVector (
     BigVector,
@@ -10,7 +13,6 @@ module BigVector (
     vIsNull,
     vgetInt,
     vget,
-    vplus,
     vminus,
     smultv,
     vmults,
@@ -33,6 +35,8 @@ module BigVector (
     import qualified Data.Foldable as F
     import qualified Data.Hashable as H
     import qualified Data.HashSet as HS
+    import qualified CalcSettings as CS
+    import qualified Actions as A
     import qualified Stringify as Str
     import qualified MathInfo as MI
     import qualified BigScalar as BS
@@ -45,15 +49,17 @@ module BigVector (
         hashWithSalt salt (BigVector pos) = H.hashWithSalt salt (F.toList pos)
 
     instance Show BigVector where
-        show vec = TP.printf "Vector[%s]" str
-            where str = _str vec show
+        show vec = _str "Vector[%s]" vec show
 
     instance Str.Stringifier BigVector where
-        stringify vec = TP.printf "<%s>" str
-            where str = _str vec Str.stringify
+        stringify sets vec = _str "<%s>" vec (Str.stringify sets)
 
-    _str :: BigVector -> (BS.BigScalar -> String) -> String
-    _str (BigVector pos) converter = F.foldl' (++) "" commaSeparated
+    _str :: String -> BigVector -> MI.UnaryAction BS.BigScalar String -> String
+    _str format vec converter = TP.printf format strVal
+        where strVal = _strHelper vec converter
+
+    _strHelper :: BigVector -> MI.UnaryAction BS.BigScalar String -> String
+    _strHelper (BigVector pos) converter = concat commaSeparated
         where stringList = fmap converter pos
               commaSeparated = S.intersperse "," stringList
 
@@ -87,18 +93,13 @@ module BigVector (
     vget vec index
         | not $ BS.isExactInteger index = MI.withError MI.InvalidValue
         | otherwise = vgetInt vec intIndex
-        where intIndex = BS.asBuiltInInt index
+        where intIndex = BS.asInt index
 
-    vplus :: BigVector -> BigVector -> MI.ComputationResult BigVector
-    vplus = _binaryOperation BS.splus
+    instance A.Addable BigVector where
+        plus = _binaryAction A.unsafePlus
 
     vminus :: BigVector -> BigVector -> MI.ComputationResult BigVector
-    vminus = _binaryOperation BS.sminus
-
-    _binaryOperation :: BS.BinaryScalarAction -> BigVector -> BigVector -> MI.ComputationResult BigVector
-    _binaryOperation operation left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ vEqualSize left right = MI.withError MI.InvalidValue
-        | otherwise = (MI.withValue . BigVector) $ S.zipWith operation leftPos rightPos
+    vminus = _binaryAction BS.sminus
 
     smultv :: BS.BigScalar -> BigVector -> MI.ComputationResult BigVector
     smultv left right@(BigVector rightPos)
@@ -109,7 +110,16 @@ module BigVector (
     vmults = flip smultv
 
     vscale :: BigVector -> BigVector -> MI.ComputationResult BigVector
-    vscale = _binaryOperation BS.smult
+    vscale = _binaryAction BS.smult
+
+    _binaryAction :: BS.BinaryScalarAction -> BigVector -> BigVector -> MI.ComputationResult BigVector
+    _binaryAction action left@(BigVector leftPos) right@(BigVector rightPos)
+        | not $ vEqualSize left right = MI.withError MI.InvalidValue
+        | otherwise = (MI.withValue . BigVector) $ S.zipWith action leftPos rightPos
+
+    _pad :: Int -> BS.BigScalar -> BigVector -> BigVector
+    _pad amount padVal (BigVector pos) = BigVector $ pos S.>< padValList
+        where padValList = S.replicate amount padVal
 
     vdot :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     vdot left@(BigVector leftPos) right@(BigVector rightPos)
@@ -117,7 +127,7 @@ module BigVector (
         | otherwise = (MI.withValue . _sum) $ S.zipWith BS.smult leftPos rightPos
 
     _sum :: S.Seq BS.BigScalar -> BS.BigScalar
-    _sum = F.foldr BS.splus BS.zero
+    _sum = F.foldr A.unsafePlus BS.zero
 
     vcross :: BigVector -> BigVector -> MI.ComputationResult BigVector
     vcross left right
@@ -154,16 +164,15 @@ module BigVector (
 
     vdist :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     vdist left right
-        | MI.isFailure subtResult = MI.convert subtResult
+        | not $ vEqualSize left right = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . BS.ssqrt . _sum) $ fmap square (_pos subtValue)
-        where subtResult = vminus left right
-              subtValue = MI.value subtResult
+        where subtValue = MI.value $ vminus left right
               square = MI.value . ((flip BS.spow) BS.two)
 
     vangle :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     vangle left right
         | (not $ vEqualSize left right) || (vIsNull left) || (vIsNull right) = MI.withError MI.InvalidValue
-        | otherwise = (BS.sacos . MI.value) $ BS.sdiv dotProd absProd
+        | otherwise = (BS.sacos .  MI.value) $ BS.sdiv dotProd absProd
         where dotProd = MI.value $ vdot left right
               absProd = BS.smult (vabs left) (vabs right)
 
