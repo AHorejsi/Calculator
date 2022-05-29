@@ -14,7 +14,7 @@ module Main (
     import BigVector
     import BigList
     import BigMatrix
-    import MathEntity
+    import Actions
     import Parse
     
     val1 :: BigScalar
@@ -38,15 +38,9 @@ module Main (
     mat1 :: BigMatrix
     mat1 = mlist [[integer 1, integer 2, integer 3, integer 10],[integer 4, integer 5, integer 6, integer 11],[integer 7, integer 8, integer 9, integer 12],[integer 13, integer 14, integer 15, integer 16]]
 
-    true :: MathEntity
-    true = makeBool True
-
-    false :: MathEntity
-    false = makeBool False
-
-    printSets :: PrintSettings
-    printSets = prints settings
+    printer :: (Stringifier a) => a -> String
+    printer = stringify (prints settings)
 
     main :: IO ()
     main = putStrLn strs
-        where strs = "\n" ++ (stringify printSets val1) ++ "\n" ++ (stringify printSets val2) ++ "\n" ++ (stringify printSets val3) ++ "\n" ++ (stringify printSets val4) ++ "\n"
+        where strs = "\n" ++ (show $ div mat1 mat1) ++ "\n"

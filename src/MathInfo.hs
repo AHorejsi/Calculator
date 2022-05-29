@@ -72,6 +72,9 @@ module MathInfo (
     instance H.Hashable ComputationError where
         hashWithSalt salt value = H.hashWithSalt salt (fromEnum value)
 
+    instance (Show a) => Show (ComputationResult a) where
+        show result = _str result show show
+
     _str :: ComputationResult a -> (a -> String) -> (ComputationError -> String) -> String
     _str (SuccessfulComputation val) valueConverter _ = TP.printf "SuccessfulComputation { %s }" (valueConverter val)
     _str (FailedComputation errors) _ errorConverter = TP.printf "FailedComputation { %s }" finalString
