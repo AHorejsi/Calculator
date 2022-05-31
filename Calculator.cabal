@@ -28,7 +28,6 @@ source-repository head
 library
   exposed-modules:
       Actions
-      BigList
       BigMatrix
       BigScalar
       BigVector

@@ -25,7 +25,6 @@ module BigMatrix (
     mmultv,
     mRowVector,
     mColVector,
-    mdivs,
     mdet,
     mtranspose,
     msub,
@@ -182,13 +181,13 @@ module BigMatrix (
 
     mRowVector :: BV.BigVector -> BigMatrix
     mRowVector vec = BigMatrix list 1 dimensions
-        where dimensions = BS.intSize vec
-              list = BV.asSeq vec
+        where dimensions = BV.length1 vec
+              list = BV.toSeq vec
     
     mColVector :: BV.BigVector -> BigMatrix
     mColVector vec = BigMatrix list dimensions 1
-        where dimensions = BS.intSize vec
-              list = BV.asSeq vec
+        where dimensions = BV.length1 vec
+              list = BV.toSeq vec
 
     _unaryAction :: BS.UnaryScalarAction -> BigMatrix -> BigMatrix
     _unaryAction operation (BigMatrix table rows cols) = BigMatrix (fmap operation table) rows cols
@@ -220,11 +219,6 @@ module BigMatrix (
         where lastColIndex = cols - 1
               nextRowIndex = if colIndex == lastColIndex then rowIndex + 1 else rowIndex
               nextColIndex = if colIndex == lastColIndex then 0 else colIndex + 1
-
-    mdivs :: BigMatrix -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mdivs left right
-        | BS.zero == right = MI.withError MI.InvalidValue
-        | otherwise = MI.withValue $ _unaryAction ((flip A.unsafeDiv) right) left
 
     instance A.Divisible BigMatrix where
         div left right = MI.errBinResolveRight left invResult A.mult

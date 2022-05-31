@@ -12,7 +12,6 @@ module Main (
     import CalcSettings
     import BigScalar
     import BigVector
-    import BigList
     import BigMatrix
     import Actions
     import Parse
@@ -30,10 +29,7 @@ module Main (
     val4 = quaternion (57893.008943534123645798) (563.05340534798564213) (8.935345254652314878979431) (10.4857384655089403285904318590222)
 
     vec1 :: BigVector
-    vec1 = value $ vlist [integer 1, integer 2, integer 3]
-
-    list1 :: BigList
-    list1 = llist [integer $ -1, integer 1, integer 2, integer 3, integer 4, integer 3, integer 10, integer 9]
+    vec1 = fromList [integer 1, integer $ -2, integer 3, integer $ -1, integer 5]
 
     mat1 :: BigMatrix
     mat1 = mlist [[integer 1, integer 2, integer 3, integer 10],[integer 4, integer 5, integer 6, integer 11],[integer 7, integer 8, integer 9, integer 12],[integer 13, integer 14, integer 15, integer 16]]
@@ -42,5 +38,6 @@ module Main (
     printer = stringify (prints settings)
 
     main :: IO ()
-    main = putStrLn strs
-        where strs = "\n" ++ (show $ div mat1 mat1) ++ "\n"
+    main = putStrLn $ "\n" ++ (show minVal) ++ "\n" ++ (show maxVal) ++ "\n"
+        where minVal = findMin vec1
+              maxVal = findMax vec1

@@ -80,13 +80,7 @@ module BigScalar (
     absol,
     norm,
     unsafeAbsol,
-    unsafeNorm,
-    Sized,
-    intSize,
-    getInt,
-    size,
-    equalSize,
-    get
+    unsafeNorm
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
@@ -155,19 +149,6 @@ module BigScalar (
         unsafeAbsol = MI.unaryNonerror absol
         unsafeNorm :: a -> a
         unsafeNorm = MI.unaryNonerror norm
-
-    class Sized a where
-        intSize :: a -> Int
-        getInt :: a -> Int -> MI.ComputationResult BigScalar
-        size :: a -> BigScalar
-        size = integral . intSize
-        equalSize :: a -> a -> Bool
-        equalSize left right = (intSize left) == (intSize right)
-        get :: a -> BigScalar -> MI.ComputationResult BigScalar
-        get struct index
-            | not $ isExactInteger index = MI.withError MI.InvalidValue
-            | otherwise = getInt struct intIndex
-            where intIndex = asInt index
 
     data BigScalar = BigInteger {
         _int :: BigInt_

@@ -12,12 +12,10 @@ module MathEntity (
     ErrableTernaryEntityAction,
     makeScalar,
     makeVector,
-    makeList,
     makeMatrix,
     makeBool,
     scalarResult,
     vectorResult,
-    listResult,
     matrixResult,
     boolResult,
     isInteger,
@@ -26,7 +24,6 @@ module MathEntity (
     isQuaternion,
     isScalar,
     isVector,
-    isList,
     isMatrix,
     isBool,
     realCoef,
@@ -34,13 +31,8 @@ module MathEntity (
     imag1Coef,
     imag2Coef,
     vectorPart,
-    plusPad,
-    minusPad,
-    multPad,
     dot,
     cross,
-    div,
-    divPad,
     intDiv,
     mod,
     rem,
@@ -48,9 +40,7 @@ module MathEntity (
     lcm,
     gcd,
     pow,
-    powPad,
     sqrt,
-    inv,
     conj,
     norm,
     arg,
@@ -103,7 +93,6 @@ module MathEntity (
     isSortedAsc,
     isSortedDesc,
     isSorted,
-    sublist,
     concat,
     merge,
     rowVector,
@@ -123,9 +112,6 @@ module MathEntity (
     xor,
     get1,
     get2,
-    listRepeat,
-    listIncrement,
-    matrixRepeat,
     identity,
     toBinary,
     toHexadecimal,
@@ -140,15 +126,12 @@ module MathEntity (
     import qualified MathInfo as MI
     import qualified BigScalar as BS
     import qualified BigVector as BV
-    import qualified BigList as BL
     import qualified BigMatrix as BM
 
     data MathEntity = ScalarEntity {
         _scalar :: BS.BigScalar
     } | VectorEntity {
         _vector :: BV.BigVector
-    } | ListEntity {
-        _list :: BL.BigList
     } | MatrixEntity {
         _matrix :: BM.BigMatrix
     } | BoolEntity {
@@ -158,21 +141,18 @@ module MathEntity (
     instance H.Hashable MathEntity where
         hashWithSalt salt (ScalarEntity scalar) = H.hashWithSalt salt scalar
         hashWithSalt salt (VectorEntity vector) = H.hashWithSalt salt vector
-        hashWithSalt salt (ListEntity list) = H.hashWithSalt salt list
         hashWithSalt salt (MatrixEntity matrix) = H.hashWithSalt salt matrix
         hashWithSalt salt (BoolEntity bool) = H.hashWithSalt salt bool
 
     instance Show MathEntity where
         show (ScalarEntity scalar) = "ScalarEntity: " ++ (show scalar)
         show (VectorEntity vector) = "VectorEntity: " ++ (show vector)
-        show (ListEntity list) = "ListEntity: " ++ (show list)
         show (MatrixEntity matrix) = "MatrixEntity: " ++ (show matrix)
         show (BoolEntity bool) = "BoolEntity: " ++ (show bool)
 
     instance Str.Stringifier MathEntity where
         stringify sets (ScalarEntity scalar) = Str.stringify sets scalar
         stringify sets (VectorEntity vector) = Str.stringify sets vector
-        stringify sets (ListEntity list) = Str.stringify sets list
         stringify sets (MatrixEntity matrix) = Str.stringify sets matrix
         stringify sets (BoolEntity bool) = _boolStr bool
 
@@ -193,9 +173,6 @@ module MathEntity (
     makeVector :: BV.BigVector -> MathEntity
     makeVector = VectorEntity
 
-    makeList :: BL.BigList -> MathEntity
-    makeList = ListEntity
-
     makeMatrix :: BM.BigMatrix -> MathEntity
     makeMatrix = MatrixEntity
 
@@ -207,9 +184,6 @@ module MathEntity (
 
     vectorResult :: BV.BigVector -> MI.ComputationResult MathEntity
     vectorResult = MI.withValue . makeVector
-
-    listResult :: BL.BigList -> MI.ComputationResult MathEntity
-    listResult = MI.withValue . makeList
 
     matrixResult :: BM.BigMatrix -> MI.ComputationResult MathEntity
     matrixResult = MI.withValue . makeMatrix
@@ -247,10 +221,6 @@ module MathEntity (
     isVector VectorEntity{} = MI.withValue _trueEntity
     isVector _ = MI.withValue _falseEntity
 
-    isList :: MathEntity -> MI.ComputationResult MathEntity
-    isList ListEntity{} = MI.withValue _trueEntity
-    isList _ = MI.withValue _falseEntity
-
     isMatrix :: MathEntity -> MI.ComputationResult MathEntity
     isMatrix MatrixEntity{} = MI.withValue _trueEntity
     isMatrix _ = MI.withValue _falseEntity
@@ -281,60 +251,35 @@ module MathEntity (
 
     instance A.Addable MathEntity where
         plus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = scalarResult $ A.unsafePlus leftScalar rightScalar
-        plus (ScalarEntity leftScalar) (ListEntity rightList) = listResult $ BL.splusl leftScalar rightList
         plus (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeVector
             where result = A.plus leftVector rightVector
-        plus (ListEntity leftList) (ScalarEntity rightScalar) = listResult $ BL.lpluss leftList rightScalar
-        plus (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-            where result = A.plus leftList rightList
         plus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
             where result = A.plus leftMatrix rightMatrix
         plus _ _ = MI.withError MI.InvalidType
 
-    plusPad :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    plusPad (ScalarEntity padVal) (ListEntity leftList) (ListEntity rightList) = listResult $ BL.lplusPad padVal leftList rightList
-    plusPad _ _ _ = MI.withError MI.InvalidType
-
     instance A.Subtractable MathEntity where
         minus (ScalarEntity leftScalar) (ScalarEntity rightScalar) = scalarResult $ A.unsafeMinus leftScalar rightScalar
-        minus (ScalarEntity leftScalar) (ListEntity rightList) = listResult $ BL.sminusl leftScalar rightList
         minus (VectorEntity leftVec) (VectorEntity rightVec) = MI.unResolve result makeVector
             where result = A.minus leftVec rightVec
-        minus (ListEntity leftList) (ScalarEntity rightScalar) = listResult $ BL.lminuss leftList rightScalar
-        minus (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-            where result = A.minus leftList rightList
         minus (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
             where result = A.minus leftMatrix rightMatrix
         minus _ _ = MI.withError MI.InvalidType
-        
-
-    minusPad :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    minusPad (ScalarEntity padVal) (ListEntity leftList) (ListEntity rightList) = listResult $ BL.lminusPad padVal leftList rightList
-    minusPad _ _ _ = MI.withError MI.InvalidType
 
     instance A.Multipliable MathEntity where
         mult (ScalarEntity leftScalar) (ScalarEntity rightScalar) = scalarResult $ A.unsafeMult leftScalar rightScalar
         mult (ScalarEntity leftScalar) (VectorEntity rightVector) = MI.unResolve result makeVector
             where result = BS.rightScalarMult leftScalar rightVector
-        mult (ScalarEntity leftScalar) (ListEntity rightList) = listResult $ BL.smultl leftScalar rightList
         mult (ScalarEntity leftScalar) (MatrixEntity rightMatrix) = matrixResult $ BM.smultm leftScalar rightMatrix
         mult (VectorEntity leftVector) (ScalarEntity rightScalar) = MI.unResolve result makeVector
             where result = BS.leftScalarMult leftVector rightScalar
         mult (VectorEntity leftVector) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
             where result = BM.vmultm leftVector rightMatrix
-        mult (ListEntity leftList) (ScalarEntity rightScalar) = listResult $ BL.lmults leftList rightScalar
-        mult (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-            where result = A.mult leftList rightList
         mult (MatrixEntity leftMatrix) (ScalarEntity rightScalar) = matrixResult $ BM.mmults leftMatrix rightScalar
         mult (MatrixEntity leftMatrix) (VectorEntity rightVector) = MI.unResolve result makeMatrix
             where result = BM.mmultv leftMatrix rightVector
         mult (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
             where result = A.mult leftMatrix rightMatrix
         mult _ _ = MI.withError MI.InvalidType
-
-    multPad :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    multPad (ScalarEntity padVal) (ListEntity leftList) (ListEntity rightList) = listResult $ BL.lmultPad padVal leftList rightList
-    multPad _ _ _ = MI.withError MI.InvalidType
 
     instance A.Scalable MathEntity where
         scale (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeVector
@@ -345,35 +290,25 @@ module MathEntity (
 
     dot :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     dot (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeScalar
-        where result = BV.vdot leftVector rightVector
+        where result = BV.dot leftVector rightVector
     dot _ _ = MI.withError MI.InvalidType
 
     cross :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     cross (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeVector
-        where result = BV.vcross leftVector rightVector
+        where result = BV.cross leftVector rightVector
     cross _ _ = MI.withError MI.InvalidType
 
-    div :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    div (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = A.div leftScalar rightScalar
-    div (ScalarEntity leftScalar) (ListEntity rightList) = MI.unResolve result makeList
-        where result = BL.sdivl leftScalar rightList
-    div (VectorEntity leftVector) (ScalarEntity rightScalar) = MI.unResolve result makeVector
-        where result = BV.vdivs leftVector rightScalar
-    div (ListEntity leftList) (ScalarEntity rightScalar) = MI.unResolve result makeList
-        where result = BL.ldivs leftList rightScalar
-    div (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-        where result = A.div leftList rightList
-    div (MatrixEntity leftMatrix) (ScalarEntity rightScalar) = MI.unResolve result makeMatrix
-        where result = BM.mdivs leftMatrix rightScalar
-    div (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
-        where result = A.div leftMatrix rightMatrix
-    div _ _ = MI.withError MI.InvalidType
-
-    divPad :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    divPad (ScalarEntity padVal) (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-        where result = BL.ldivPad padVal leftList rightList
-    divPad _ _ _ = MI.withError MI.InvalidType
+    instance A.Divisible MathEntity where
+        div (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
+            where result = A.div leftScalar rightScalar
+        div (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
+            where result = A.div leftMatrix rightMatrix
+        div _ _ = MI.withError MI.InvalidType
+        inv (ScalarEntity scalar) = MI.unResolve result makeScalar
+            where result = A.inv scalar
+        inv (MatrixEntity matrix) = MI.unResolve result makeMatrix
+            where result = A.inv matrix
+        inv _ = MI.withError MI.InvalidType
 
     intDiv :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     intDiv (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
@@ -392,6 +327,7 @@ module MathEntity (
 
     abs :: MathEntity -> MI.ComputationResult MathEntity
     abs (ScalarEntity scalar) = scalarResult $ BS.unsafeAbsol scalar
+    abs (VectorEntity vector) = scalarResult $ BS.unsafeAbsol vector
     abs _ = MI.withError MI.InvalidType
 
     lcm :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
@@ -407,36 +343,17 @@ module MathEntity (
     instance A.Negatable MathEntity where
         neg (ScalarEntity scalar) = scalarResult $ A.unsafeNeg scalar
         neg (VectorEntity vector) = vectorResult $ A.unsafeNeg vector
-        neg (ListEntity list) = listResult $ A.unsafeNeg list
         neg (MatrixEntity matrix) = matrixResult $ A.unsafeNeg matrix
         neg _ = MI.withError MI.InvalidType
 
     pow :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     pow (ScalarEntity leftScalar) (ScalarEntity rightScalar) = scalarResult $ A.unsafePow leftScalar rightScalar
-    pow (ScalarEntity leftScalar) (ListEntity rightList) = listResult $ BL.spowl leftScalar rightList
-    pow (ListEntity leftList) (ScalarEntity rightScalar) = listResult $ BL.lpows leftList rightScalar
-    pow (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-        where result = BL.lpow leftList rightList
     pow _ _ = MI.withError MI.InvalidType
-
-    powPad :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    powPad (ScalarEntity padVal) (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-        where result = BL.lpowPad padVal leftList rightList
-    powPad _ _ _ = MI.withError MI.InvalidType
 
     sqrt :: MathEntity -> MI.ComputationResult MathEntity
     sqrt (ScalarEntity scalar) = MI.unResolve result makeScalar
         where result = A.sqrt scalar
     sqrt _ = MI.withError MI.InvalidType
-
-    inv :: MathEntity -> MI.ComputationResult MathEntity
-    inv (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = A.inv scalar
-    inv (ListEntity list) = MI.unResolve result makeList
-        where result = A.inv list
-    inv (MatrixEntity matrix) = MI.unResolve result makeMatrix
-        where result = A.inv matrix
-    inv _ = MI.withError MI.InvalidType
 
     conj :: MathEntity -> MI.ComputationResult MathEntity
     conj (ScalarEntity scalar) = scalarResult $ BS.sconj scalar
@@ -539,20 +456,20 @@ module MathEntity (
         where result = A.min leftScalar rightScalar
     min _ _ = MI.withError MI.InvalidType
 
-    listMin :: MathEntity -> MI.ComputationResult MathEntity
-    listMin (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lminimum list
-    listMin _ = MI.withError MI.InvalidType
+    findMin :: MathEntity -> MI.ComputationResult MathEntity
+    findMin (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.findMin vector
+    findMin _ = MI.withError MI.InvalidType
 
     max :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     max (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
         where result = A.max leftScalar rightScalar
     max _ _ = MI.withError MI.InvalidType
 
-    listMax :: MathEntity -> MI.ComputationResult MathEntity
-    listMax (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lmaximum list
-    listMax _ = MI.withError MI.InvalidType
+    findMax :: MathEntity -> MI.ComputationResult MathEntity
+    findMax (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.findMax vector
+    findMax _ = MI.withError MI.InvalidType
 
     less :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     less (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeBool
@@ -598,14 +515,12 @@ module MathEntity (
     odd _ = MI.withError MI.InvalidType
 
     size :: MathEntity -> MI.ComputationResult MathEntity
-    size (VectorEntity vector) = scalarResult $ BS.size vector
-    size (ListEntity list) = scalarResult $ BS.size list
+    size (VectorEntity vector) = scalarResult $ BV.size1 vector
     size (MatrixEntity matrix) = scalarResult $ BM.msize matrix
     size _ = MI.withError MI.InvalidType
 
     equalSize :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    equalSize (VectorEntity leftVector) (VectorEntity rightVector) = boolResult $ BS.equalSize leftVector rightVector
-    equalSize (ListEntity leftList) (ListEntity rightList) = boolResult $ BS.equalSize leftList rightList
+    equalSize (VectorEntity leftVector) (VectorEntity rightVector) = boolResult $ BV.equalSize1 leftVector rightVector
     equalSize (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = boolResult $ BM.mEqualSize leftMatrix rightMatrix
     equalSize _ _ = MI.withError MI.InvalidType
 
@@ -622,106 +537,107 @@ module MathEntity (
     isSquare _ = MI.withError MI.InvalidType
 
     isNull :: MathEntity -> MI.ComputationResult MathEntity
-    isNull (VectorEntity vector) = boolResult $ BV.vIsNull vector
+    isNull (VectorEntity vector) = boolResult $ BV.isNull vector
     isNull _ = MI.withError MI.InvalidType
 
     dist :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     dist (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeScalar
-        where result = BV.vdist leftVector rightVector
+        where result = BV.dist leftVector rightVector
     dist _ _ = MI.withError MI.InvalidType
 
     angle :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     angle (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeScalar
-        where result = BV.vangle leftVector rightVector
+        where result = BV.angle leftVector rightVector
     angle _ _ = MI.withError MI.InvalidType
 
     sum :: MathEntity -> MI.ComputationResult MathEntity
-    sum (ListEntity list) = scalarResult $ BL.lsum list
+    sum (VectorEntity vector) = scalarResult $ BV.sum vector
     sum _ = MI.withError MI.InvalidType
 
     cumsum :: MathEntity -> MI.ComputationResult MathEntity
-    cumsum (ListEntity list) = listResult $ BL.lcumsum list
+    cumsum (VectorEntity vector) = vectorResult $ BV.cumsum vector
     cumsum _ = MI.withError MI.InvalidType
 
     prod :: MathEntity -> MI.ComputationResult MathEntity
-    prod (ListEntity list) = scalarResult $ BL.lprod list
+    prod (VectorEntity vector) = scalarResult $ BV.prod vector
     prod _ = MI.withError MI.InvalidType
 
     cumprod :: MathEntity -> MI.ComputationResult MathEntity
-    cumprod (ListEntity list) = listResult $ BL.lcumprod list
+    cumprod (VectorEntity vector) = vectorResult $ BV.cumprod vector
     cumprod _ = MI.withError MI.InvalidType
 
     mean :: MathEntity -> MI.ComputationResult MathEntity
-    mean (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lmean list
+    mean (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.mean vector
     mean _ = MI.withError MI.InvalidType
 
     gmean :: MathEntity -> MI.ComputationResult MathEntity
-    gmean (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lgmean list
+    gmean (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.gmean vector
     gmean _ = MI.withError MI.InvalidType
 
     hmean :: MathEntity -> MI.ComputationResult MathEntity
-    hmean (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lhmean list
+    hmean (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.hmean vector
     hmean _ = MI.withError MI.InvalidType
 
     median :: MathEntity -> MI.ComputationResult MathEntity
-    median (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lmedian list
+    median (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.median vector
     median _ = MI.withError MI.InvalidType
 
     range :: MathEntity -> MI.ComputationResult MathEntity
-    range (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lrange list
+    range (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.range vector
     range _ = MI.withError MI.InvalidType
 
     midrange :: MathEntity -> MI.ComputationResult MathEntity
-    midrange (ListEntity list) = MI.unResolve result makeScalar
-        where result = BL.lmidrange list
+    midrange (VectorEntity vector) = MI.unResolve result makeScalar
+        where result = BV.midrange vector
     midrange _ = MI.withError MI.InvalidType
 
     mode :: MathEntity -> MI.ComputationResult MathEntity
-    mode (ListEntity list) = listResult $ BL.lmode list
+    mode (VectorEntity vector) = MI.unResolve result makeVector
+        where result = BV.mode vector
     mode _ = MI.withError MI.InvalidType
 
     sortAsc :: MathEntity -> MI.ComputationResult MathEntity
-    sortAsc (ListEntity list) = MI.unResolve result makeList
-        where result = BL.lsortAsc list
+    sortAsc (VectorEntity vector) = MI.unResolve result makeVector
+        where result = BV.sortAsc vector
     sortAsc _ = MI.withError MI.InvalidType
 
     sortDesc :: MathEntity -> MI.ComputationResult MathEntity
-    sortDesc (ListEntity list) = MI.unResolve result makeList
-        where result = BL.lsortDesc list
+    sortDesc (VectorEntity vector) = MI.unResolve result makeVector
+        where result = BV.sortDesc vector
     sortDesc _ = MI.withError MI.InvalidType
 
     isSortedAsc :: MathEntity -> MI.ComputationResult MathEntity
-    isSortedAsc (ListEntity list) = MI.unResolve result makeBool
-        where result = BL.lIsSortedAsc list
+    isSortedAsc (VectorEntity vector) = MI.unResolve result makeBool
+        where result = BV.isSortedAsc vector
     isSortedAsc _ = MI.withError MI.InvalidType
 
     isSortedDesc :: MathEntity -> MI.ComputationResult MathEntity
-    isSortedDesc (ListEntity list) = MI.unResolve result makeBool
-        where result = BL.lIsSortedDesc list
+    isSortedDesc (VectorEntity vector) = MI.unResolve result makeBool
+        where result = BV.isSortedDesc vector
     isSortedDesc _ = MI.withError MI.InvalidType
     
     isSorted :: MathEntity -> MI.ComputationResult MathEntity
-    isSorted (ListEntity list) = MI.unResolve result makeBool
-        where result = BL.lIsSorted list
+    isSorted (VectorEntity vector) = MI.unResolve result makeBool
+        where result = BV.isSorted vector
     isSorted _ = MI.withError MI.InvalidType
 
-    sublist :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    sublist (ListEntity list) (ScalarEntity lowIndex) (ScalarEntity highIndex) = MI.unResolve result makeList
-        where result = BL.lsub list lowIndex highIndex
-    sublist _ _ _ = MI.withError MI.InvalidType
+    sub1 :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
+    sub1 (VectorEntity vector) (ScalarEntity lowIndex) (ScalarEntity highIndex) = MI.unResolve result makeVector
+        where result = BV.sub1 vector lowIndex highIndex
+    sub1 _ _ _ = MI.withError MI.InvalidType
 
     concat :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    concat (ListEntity leftList) (ListEntity rightList) = listResult $ BL.lconcat leftList rightList
+    concat (VectorEntity leftVector) (VectorEntity rightVector) = vectorResult $ BV.concat leftVector rightVector
     concat _ _ = MI.withError MI.InvalidType
 
     merge :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    merge (ListEntity leftList) (ListEntity rightList) = MI.unResolve result makeList
-        where result = BL.lmerge leftList rightList
+    merge (VectorEntity leftVector) (VectorEntity rightVector) = MI.unResolve result makeVector
+        where result = BV.merge leftVector rightVector
     merge _ _ = MI.withError MI.InvalidType
 
     rowVector :: MathEntity -> MI.ComputationResult MathEntity
@@ -777,9 +693,8 @@ module MathEntity (
     swapCols _ _ _ = MI.withError MI.InvalidType
 
     not :: MathEntity -> MI.ComputationResult MathEntity
-    not entity@BoolEntity{}
-        | entity == _trueEntity = MI.withValue _falseEntity
-        | otherwise = MI.withValue _trueEntity
+    not (BoolEntity True) = boolResult False
+    not (BoolEntity False) = boolResult True
     not _ = MI.withError MI.InvalidType
 
     and :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
@@ -796,30 +711,13 @@ module MathEntity (
 
     get1 :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     get1 (VectorEntity vec) (ScalarEntity index) = MI.unResolve result makeScalar
-        where result = BS.get vec index
-    get1 (ListEntity list) (ScalarEntity index) = MI.unResolve result makeScalar
-        where result = BS.get list index
+        where result = BV.get1 vec index
     get1 _ _ = MI.withError MI.InvalidType
 
     get2 :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     get2 (MatrixEntity matrix) (ScalarEntity rowIndex) (ScalarEntity colIndex) = MI.unResolve result makeScalar
         where result = BM.mget matrix rowIndex colIndex
     get2 _ _ _ = MI.withError MI.InvalidType
-
-    listRepeat :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    listRepeat (ScalarEntity scalar) (ScalarEntity count) = MI.unResolve result makeList
-        where result = BL.lrepeat scalar count
-    listRepeat _ _ = MI.withError MI.InvalidType
-
-    listIncrement :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    listIncrement (ScalarEntity initial) (ScalarEntity incremental) (ScalarEntity count) = MI.unResolve result makeList
-        where result = BL.lincrement initial incremental count
-    listIncrement _ _ _ = MI.withError MI.InvalidType
-
-    matrixRepeat :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    matrixRepeat (ScalarEntity value) (ScalarEntity rows) (ScalarEntity cols) = MI.unResolve result makeMatrix
-        where result = BM.mrepeat value rows cols
-    matrixRepeat _ _ _ = MI.withError MI.InvalidType
 
     identity :: MathEntity -> MI.ComputationResult MathEntity
     identity (ScalarEntity dimensions) = MI.unResolve result makeMatrix
