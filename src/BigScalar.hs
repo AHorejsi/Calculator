@@ -88,7 +88,6 @@ module BigScalar (
     import qualified Data.List as L
     import qualified Data.Maybe as M
     import qualified Data.Hashable as H
-    import qualified Data.HashSet as HS
     import qualified Data.Number.Fixed as DNF
     import qualified CalcSettings as CS
     import qualified Actions as A

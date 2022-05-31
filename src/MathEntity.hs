@@ -516,7 +516,6 @@ module MathEntity (
 
     size :: MathEntity -> MI.ComputationResult MathEntity
     size (VectorEntity vector) = scalarResult $ BV.size1 vector
-    size (MatrixEntity matrix) = scalarResult $ BM.msize matrix
     size _ = MI.withError MI.InvalidType
 
     equalSize :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity

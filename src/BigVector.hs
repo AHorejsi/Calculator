@@ -45,18 +45,14 @@ module BigVector (
     import Prelude hiding (sum, concat)
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
-    import qualified Data.Maybe as M
     import qualified Data.Sequence as S
     import qualified Data.Foldable as F
     import qualified Data.Hashable as H
-    import qualified Data.HashSet as HS
     import qualified Data.HashMap.Lazy as HM
-    import qualified CalcSettings as CS
     import qualified Actions as A
     import qualified Stringify as Str
     import qualified MathInfo as MI
     import qualified BigScalar as BS
-    import qualified BigScalar as A
     
     newtype BigVector = BigVector {
         _pos :: S.Seq BS.BigScalar
@@ -126,10 +122,10 @@ module BigVector (
         minus = _binaryAction A.unsafeMinus
 
     instance BS.ScalarMultipliable BigVector where
-        rightScalarMult left right@(BigVector rightPos)
-            | BS.isExactQuaternion left = MI.withError MI.InvalidValue
-            | otherwise = (MI.withValue . fromSeq) $ fmap (A.unsafeMult left) rightPos
-        leftScalarMult = flip BS.rightScalarMult
+        rightScalarMult left right = MI.withValue $ BS.unsafeRightScalarMult left right
+        leftScalarMult left right = MI.withValue $ BS.unsafeLeftScalarMult left right
+        unsafeRightScalarMult left (BigVector rightPos) = fromSeq $ fmap (A.unsafeMult left) rightPos
+        unsafeLeftScalarMult (BigVector leftPos) right = fromSeq $ fmap (`A.unsafeMult` right) leftPos
 
     instance A.Scalable BigVector where
         scale = _binaryAction A.unsafeMult
@@ -171,7 +167,7 @@ module BigVector (
         unsafeAbsol vec = (A.unsafeSqrt . MI.value) $ dot vec vec
         norm vec
             | isNull vec = MI.withError MI.InvalidValue
-            | otherwise = A.leftScalarMult vec (A.unsafeDiv BS.one (BS.unsafeAbsol vec))
+            | otherwise = BS.leftScalarMult vec (A.unsafeDiv BS.one (BS.unsafeAbsol vec))
 
     findMin :: BigVector -> MI.ComputationResult BS.BigScalar
     findMin (BigVector S.Empty) = MI.withError MI.InvalidState
@@ -250,7 +246,7 @@ module BigVector (
         where headVal = S.index vals 0
               tail = S.drop 1 vals
               (left, right) = S.partition (`A.unsafeLessEqual` headVal) tail
-              leftSize = F.length left
+              leftSize = S.length left
 
     range :: BigVector -> MI.ComputationResult BS.BigScalar
     range (BigVector S.Empty) = MI.withError MI.InvalidState
@@ -276,11 +272,10 @@ module BigVector (
     _count :: S.Seq BS.BigScalar -> HM.HashMap BS.BigScalar Int -> HM.HashMap BS.BigScalar Int
     _count S.Empty counter = counter
     _count vals counter
-        | M.isNothing mappedVal = _count rest (HM.insert headVal 1 counter)
+        | HM.member headVal counter = _count rest (HM.insert headVal 1 counter)
         | otherwise = _count rest (HM.adjust (+1) headVal counter)
         where headVal = S.index vals 0
               rest = S.drop 1 vals
-              mappedVal = HM.lookup headVal counter
 
     sortAsc :: BigVector -> MI.ComputationResult BigVector
     sortAsc (BigVector vals)

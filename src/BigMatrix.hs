@@ -10,7 +10,6 @@ module BigMatrix (
     midentity,
     mrows,
     mcols,
-    msize,
     mrowLength,
     mcolLength,
     mlength,
@@ -118,9 +117,6 @@ module BigMatrix (
 
     mcols :: BigMatrix -> BS.BigScalar
     mcols = BS.integral . mcolLength
-
-    msize :: BigMatrix -> BS.BigScalar
-    msize = BS.integral . mlength
 
     mrowLength :: BigMatrix -> Int
     mrowLength (BigMatrix _ rows _) = rows
