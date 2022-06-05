@@ -116,9 +116,11 @@ module MathEntity (
     toBinary,
     toHexadecimal,
     toOctal,
-    factorial
+    factorial,
+    choose,
+    perm
 ) where
-    import Prelude hiding (abs, div, mod, rem, lcm, gcd, sqrt, exp, log, logBase, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, atan2, asinh, acosh, atanh, min, max, ceiling, floor, even, odd, sum, concat, not, and, or)
+    import Prelude hiding (abs, div, lcm, gcd, sqrt, exp, log, logBase, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, atan2, asinh, acosh, atanh, min, max, ceiling, floor, even, odd, sum, concat, not, and, or, mod, rem)
     import qualified GHC.Generics as G
     import qualified Data.Hashable as H
     import qualified Actions as A
@@ -197,21 +199,21 @@ module MathEntity (
     _falseEntity :: MathEntity
     _falseEntity = makeBool False
 
-    _checkScalarType :: MI.UnaryAction BS.BigScalar Bool -> MathEntity -> MI.ComputationResult MathEntity
+    _checkScalarType :: MI.UnaryPredicate BS.BigScalar -> MathEntity -> MI.ComputationResult MathEntity
     _checkScalarType typeCheck (ScalarEntity scalar) = boolResult $ typeCheck scalar
     _checkScalarType _ _ = MI.withValue _falseEntity
 
     isInteger :: MathEntity -> MI.ComputationResult MathEntity
-    isInteger = _checkScalarType BS.sIsInteger
+    isInteger = _checkScalarType BS.isInteger
 
     isReal :: MathEntity -> MI.ComputationResult MathEntity
-    isReal = _checkScalarType BS.sIsReal
+    isReal = _checkScalarType BS.isReal
 
     isComplex :: MathEntity -> MI.ComputationResult MathEntity
-    isComplex = _checkScalarType BS.sIsComplex
+    isComplex = _checkScalarType BS.isComplex
 
     isQuaternion :: MathEntity -> MI.ComputationResult MathEntity
-    isQuaternion = _checkScalarType BS.sIsQuaternion
+    isQuaternion = _checkScalarType BS.isQuaternion
 
     isScalar :: MathEntity -> MI.ComputationResult MathEntity
     isScalar ScalarEntity{} = MI.withValue _trueEntity
@@ -234,19 +236,19 @@ module MathEntity (
     _coef _ _ = MI.withError MI.InvalidType
 
     realCoef :: MathEntity -> MI.ComputationResult MathEntity
-    realCoef = _coef BS.sRealCoef
+    realCoef = _coef BS.realCoef
 
     imag0Coef :: MathEntity -> MI.ComputationResult MathEntity
-    imag0Coef = _coef BS.sImag0Coef
+    imag0Coef = _coef BS.imag0Coef
 
     imag1Coef :: MathEntity -> MI.ComputationResult MathEntity
-    imag1Coef = _coef BS.sImag1Coef
+    imag1Coef = _coef BS.imag1Coef
 
     imag2Coef :: MathEntity -> MI.ComputationResult MathEntity
-    imag2Coef = _coef BS.sImag2Coef
+    imag2Coef = _coef BS.imag2Coef
 
     vectorPart :: MathEntity -> MI.ComputationResult MathEntity
-    vectorPart (ScalarEntity scalar) = scalarResult $ BS.sVectorPart scalar
+    vectorPart (ScalarEntity scalar) = scalarResult $ BS.vectorPart scalar
     vectorPart _ = MI.withError MI.InvalidType
 
     instance A.Addable MathEntity where
@@ -267,16 +269,14 @@ module MathEntity (
 
     instance A.Multipliable MathEntity where
         mult (ScalarEntity leftScalar) (ScalarEntity rightScalar) = scalarResult $ A.unsafeMult leftScalar rightScalar
-        mult (ScalarEntity leftScalar) (VectorEntity rightVector) = MI.unResolve result makeVector
-            where result = BS.rightScalarMult leftScalar rightVector
-        mult (ScalarEntity leftScalar) (MatrixEntity rightMatrix) = matrixResult $ BM.smultm leftScalar rightMatrix
-        mult (VectorEntity leftVector) (ScalarEntity rightScalar) = MI.unResolve result makeVector
-            where result = BS.leftScalarMult leftVector rightScalar
+        mult (ScalarEntity leftScalar) (VectorEntity rightVector) = vectorResult $ BS.unsafeRightScalarMult leftScalar rightVector
+        mult (ScalarEntity leftScalar) (MatrixEntity rightMatrix) = matrixResult $ BS.unsafeRightScalarMult leftScalar rightMatrix
+        mult (VectorEntity leftVector) (ScalarEntity rightScalar) = vectorResult $ BS.unsafeLeftScalarMult leftVector rightScalar
         mult (VectorEntity leftVector) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
-            where result = BM.vmultm leftVector rightMatrix
-        mult (MatrixEntity leftMatrix) (ScalarEntity rightScalar) = matrixResult $ BM.mmults leftMatrix rightScalar
+            where result = BM.rightVectorMult leftVector rightMatrix
+        mult (MatrixEntity leftMatrix) (ScalarEntity rightScalar) = matrixResult $ BS.unsafeLeftScalarMult leftMatrix rightScalar
         mult (MatrixEntity leftMatrix) (VectorEntity rightVector) = MI.unResolve result makeMatrix
-            where result = BM.mmultv leftMatrix rightVector
+            where result = BM.leftVectorMult leftMatrix rightVector
         mult (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = MI.unResolve result makeMatrix
             where result = A.mult leftMatrix rightMatrix
         mult _ _ = MI.withError MI.InvalidType
@@ -312,17 +312,17 @@ module MathEntity (
 
     intDiv :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     intDiv (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = BS.sIntDiv leftScalar rightScalar
+        where result = BS.intDiv leftScalar rightScalar
     intDiv _ _ = MI.withError MI.InvalidType
 
     mod :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     mod (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = BS.smod leftScalar rightScalar
+        where result = BS.modulo leftScalar rightScalar
     mod _ _ = MI.withError MI.InvalidType
 
     rem :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     rem (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = BS.srem leftScalar rightScalar
+        where result = BS.remainder leftScalar rightScalar
     rem _ _ = MI.withError MI.InvalidType
 
     abs :: MathEntity -> MI.ComputationResult MathEntity
@@ -332,12 +332,12 @@ module MathEntity (
 
     lcm :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     lcm (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = BS.slcm leftScalar rightScalar
+        where result = BS.lcm leftScalar rightScalar
     lcm _ _ = MI.withError MI.InvalidType
 
     gcd :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     gcd (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = BS.sgcd leftScalar rightScalar
+        where result = BS.gcd leftScalar rightScalar
     gcd _ _ = MI.withError MI.InvalidType
 
     instance A.Negatable MathEntity where
@@ -356,7 +356,7 @@ module MathEntity (
     sqrt _ = MI.withError MI.InvalidType
 
     conj :: MathEntity -> MI.ComputationResult MathEntity
-    conj (ScalarEntity scalar) = scalarResult $ BS.sconj scalar
+    conj (ScalarEntity scalar) = scalarResult $ BS.conj scalar
     conj _ = MI.withError MI.InvalidType
 
     norm :: MathEntity -> MI.ComputationResult MathEntity
@@ -368,7 +368,7 @@ module MathEntity (
 
     arg :: MathEntity -> MI.ComputationResult MathEntity
     arg (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sarg scalar
+        where result = BS.arg scalar
     arg _ = MI.withError MI.InvalidType
 
     exp :: MathEntity -> MI.ComputationResult MathEntity
@@ -382,73 +382,73 @@ module MathEntity (
     log _ = MI.withError MI.InvalidType
 
     logBase :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    logBase (ScalarEntity baseScalar) (ScalarEntity argScalar) = MI.unResolve result makeScalar
-        where result = A.logBase baseScalar argScalar
+    logBase (ScalarEntity base) (ScalarEntity arg) = MI.unResolve result makeScalar
+        where result = A.logBase base arg
     logBase _ _ = MI.withError MI.InvalidType
 
     sin :: MathEntity -> MI.ComputationResult MathEntity
     sin (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.ssin scalar
+        where result = BS.sine scalar
     sin _ = MI.withError MI.InvalidType
 
     cos :: MathEntity -> MI.ComputationResult MathEntity
     cos (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.scos scalar
+        where result = BS.cosine scalar
     cos _ = MI.withError MI.InvalidType
 
     tan :: MathEntity -> MI.ComputationResult MathEntity
     tan (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.stan scalar
+        where result = BS.tangent scalar
     tan _ = MI.withError MI.InvalidType
 
     sinh :: MathEntity -> MI.ComputationResult MathEntity
     sinh (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.ssinh scalar
+        where result = BS.sineHyperbolic scalar
     sinh _ = MI.withError MI.InvalidType
 
     cosh :: MathEntity -> MI.ComputationResult MathEntity
     cosh (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.scosh scalar
+        where result = BS.cosineHyperbolic scalar
     cosh _ = MI.withError MI.InvalidType
 
     tanh :: MathEntity -> MI.ComputationResult MathEntity
     tanh (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.stanh scalar
+        where result = BS.tangentHyperbolic scalar
     tanh _ = MI.withError MI.InvalidType
 
     asin :: MathEntity -> MI.ComputationResult MathEntity
     asin (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sasin scalar
+        where result = BS.arcsine scalar
     asin _ = MI.withError MI.InvalidType
 
     acos :: MathEntity -> MI.ComputationResult MathEntity
     acos (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sacos scalar
+        where result = BS.arccosine scalar
     acos _ = MI.withError MI.InvalidType
 
     atan :: MathEntity -> MI.ComputationResult MathEntity
     atan (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.satan scalar
+        where result = BS.arctangent scalar
     atan _ = MI.withError MI.InvalidType
 
     atan2 :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     atan2 (ScalarEntity leftScalar) (ScalarEntity rightScalar) = MI.unResolve result makeScalar
-        where result = BS.satan2 leftScalar rightScalar
+        where result = BS.arctangent2 leftScalar rightScalar
     atan2 _ _ = MI.withError MI.InvalidType
 
     asinh :: MathEntity -> MI.ComputationResult MathEntity
     asinh (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sasinh scalar
+        where result = BS.arcsineHyperbolic scalar
     asinh _ = MI.withError MI.InvalidType
 
     acosh :: MathEntity -> MI.ComputationResult MathEntity
     acosh (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sacosh scalar
+        where result = BS.arccosineHyperbolic scalar
     acosh _ = MI.withError MI.InvalidType
 
     atanh :: MathEntity -> MI.ComputationResult MathEntity
     atanh (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.satanh scalar
+        where result = BS.arctangentHyperbolic scalar
     atanh _ = MI.withError MI.InvalidType
 
     min :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
@@ -493,25 +493,25 @@ module MathEntity (
 
     ceiling :: MathEntity -> MI.ComputationResult MathEntity
     ceiling (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sceil scalar
+        where result = BS.roundUp scalar
     ceiling _ = MI.withError MI.InvalidType
 
     floor :: MathEntity -> MI.ComputationResult MathEntity
     floor (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sfloor scalar
+        where result = BS.roundDown scalar
     floor _ = MI.withError MI.InvalidType
 
     round :: MathEntity -> MI.ComputationResult MathEntity
     round (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sround scalar
+        where result = BS.roundOff scalar
     round _ = MI.withError MI.InvalidType
 
     even :: MathEntity -> MI.ComputationResult MathEntity
-    even (ScalarEntity scalar) = boolResult $ BS.sEven scalar
+    even (ScalarEntity scalar) = boolResult $ BS.isEven scalar
     even _ = MI.withError MI.InvalidType
 
     odd :: MathEntity -> MI.ComputationResult MathEntity
-    odd (ScalarEntity scalar) = boolResult $ BS.sOdd scalar
+    odd (ScalarEntity scalar) = boolResult $ BS.isOdd scalar
     odd _ = MI.withError MI.InvalidType
 
     size :: MathEntity -> MI.ComputationResult MathEntity
@@ -519,20 +519,20 @@ module MathEntity (
     size _ = MI.withError MI.InvalidType
 
     equalSize :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
-    equalSize (VectorEntity leftVector) (VectorEntity rightVector) = boolResult $ BV.equalSize1 leftVector rightVector
-    equalSize (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = boolResult $ BM.mEqualSize leftMatrix rightMatrix
+    equalSize (VectorEntity leftVector) (VectorEntity rightVector) = boolResult $ BV.equalSize leftVector rightVector
+    equalSize (MatrixEntity leftMatrix) (MatrixEntity rightMatrix) = boolResult $ BM.equalSize leftMatrix rightMatrix
     equalSize _ _ = MI.withError MI.InvalidType
 
     rows :: MathEntity -> MI.ComputationResult MathEntity
-    rows (MatrixEntity matrix) = scalarResult $ BM.mrows matrix
+    rows (MatrixEntity matrix) = scalarResult $ BM.rows matrix
     rows _ = MI.withError MI.InvalidType
 
     cols :: MathEntity -> MI.ComputationResult MathEntity
-    cols (MatrixEntity matrix) = scalarResult $ BM.mcols matrix
+    cols (MatrixEntity matrix) = scalarResult $ BM.cols matrix
     cols _ = MI.withError MI.InvalidType
 
     isSquare :: MathEntity -> MI.ComputationResult MathEntity
-    isSquare (MatrixEntity matrix) = boolResult $ BM.mIsSquare matrix
+    isSquare (MatrixEntity matrix) = boolResult $ BM.isSquare matrix
     isSquare _ = MI.withError MI.InvalidType
 
     isNull :: MathEntity -> MI.ComputationResult MathEntity
@@ -640,55 +640,55 @@ module MathEntity (
     merge _ _ = MI.withError MI.InvalidType
 
     rowVector :: MathEntity -> MI.ComputationResult MathEntity
-    rowVector (VectorEntity vector) = matrixResult $ BM.mRowVector vector
+    rowVector (VectorEntity vector) = matrixResult $ BM.rowVector vector
     rowVector _ = MI.withError MI.InvalidType
 
     colVector :: MathEntity -> MI.ComputationResult MathEntity
-    colVector (VectorEntity vector) = matrixResult $ BM.mColVector vector
+    colVector (VectorEntity vector) = matrixResult $ BM.colVector vector
     colVector _ = MI.withError MI.InvalidType
 
     det :: MathEntity -> MI.ComputationResult MathEntity
     det (MatrixEntity matrix) = MI.unResolve result makeScalar
-        where result = BM.mdet matrix
+        where result = BM.det matrix
     det _ = MI.withError MI.InvalidType
 
     transpose :: MathEntity -> MI.ComputationResult MathEntity
-    transpose (MatrixEntity matrix) = matrixResult $ BM.mtranspose matrix
+    transpose (MatrixEntity matrix) = matrixResult $ BM.transpose matrix
     transpose _ = MI.withError MI.InvalidType
 
     submatrix :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     submatrix (MatrixEntity matrix) (ScalarEntity lowIndex) (ScalarEntity highIndex) = MI.unResolve result makeMatrix
-        where result = BM.msub matrix lowIndex highIndex
+        where result = BM.sub2 matrix lowIndex highIndex
     submatrix _ _ _ = MI.withError MI.InvalidType
 
     addRow :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     addRow (MatrixEntity matrix) (ScalarEntity fromRowIndex) (ScalarEntity toRowIndex) = MI.unResolve result makeMatrix
-        where result = BM.mAddRow matrix fromRowIndex toRowIndex
+        where result = BM.addRow matrix fromRowIndex toRowIndex
     addRow _ _ _ = MI.withError MI.InvalidType
 
     multRow :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     multRow (MatrixEntity matrix) (ScalarEntity multValue) (ScalarEntity rowIndex) = MI.unResolve result makeMatrix
-        where result = BM.mMultRow matrix multValue rowIndex
+        where result = BM.multRow matrix multValue rowIndex
     multRow _ _ _ = MI.withError MI.InvalidType
 
     swapRows :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     swapRows (MatrixEntity matrix) (ScalarEntity rowIndex1) (ScalarEntity rowIndex2) = MI.unResolve result makeMatrix
-        where result = BM.mSwapRows matrix rowIndex1 rowIndex2
+        where result = BM.swapRows matrix rowIndex1 rowIndex2
     swapRows _ _ _ = MI.withError MI.InvalidType
 
     addCol :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     addCol (MatrixEntity matrix) (ScalarEntity fromColIndex) (ScalarEntity toColIndex) = MI.unResolve result makeMatrix
-        where result = BM.mAddCol matrix fromColIndex toColIndex
+        where result = BM.addCol matrix fromColIndex toColIndex
     addCol _ _ _ = MI.withError MI.InvalidType
 
     multCol :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     multCol (MatrixEntity matrix) (ScalarEntity multValue) (ScalarEntity colIndex) = MI.unResolve result makeMatrix
-        where result = BM.mMultCol matrix multValue colIndex
+        where result = BM.multCol matrix multValue colIndex
     multCol _ _ _ = MI.withError MI.InvalidType
 
     swapCols :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     swapCols (MatrixEntity matrix) (ScalarEntity colIndex1) (ScalarEntity colIndex2) = MI.unResolve result makeMatrix
-        where result = BM.mSwapCols matrix colIndex1 colIndex2
+        where result = BM.swapCols matrix colIndex1 colIndex2
     swapCols _ _ _ = MI.withError MI.InvalidType
 
     not :: MathEntity -> MI.ComputationResult MathEntity
@@ -715,27 +715,37 @@ module MathEntity (
 
     get2 :: MathEntity -> MathEntity -> MathEntity -> MI.ComputationResult MathEntity
     get2 (MatrixEntity matrix) (ScalarEntity rowIndex) (ScalarEntity colIndex) = MI.unResolve result makeScalar
-        where result = BM.mget matrix rowIndex colIndex
+        where result = BM.get2 matrix rowIndex colIndex
     get2 _ _ _ = MI.withError MI.InvalidType
 
     identity :: MathEntity -> MI.ComputationResult MathEntity
     identity (ScalarEntity dimensions) = MI.unResolve result makeMatrix
-        where result = BM.midentity dimensions
+        where result = BM.identity dimensions
     identity _ = MI.withError MI.InvalidType
 
     toBinary :: MathEntity -> MI.ComputationResult String
-    toBinary (ScalarEntity scalar) = BS.sToBinary scalar
+    toBinary (ScalarEntity scalar) = BS.toBinary scalar
     toBinary _ = MI.withError MI.InvalidType
 
     toHexadecimal :: MathEntity -> MI.ComputationResult String
-    toHexadecimal (ScalarEntity scalar) = BS.sToHexadecimal scalar
+    toHexadecimal (ScalarEntity scalar) = BS.toHexadecimal scalar
     toHexadecimal _ = MI.withError MI.InvalidType
 
     toOctal :: MathEntity -> MI.ComputationResult String
-    toOctal (ScalarEntity scalar) = BS.sToOctal scalar
+    toOctal (ScalarEntity scalar) = BS.toOctal scalar
     toOctal _ = MI.withError MI.InvalidType
 
     factorial :: MathEntity -> MI.ComputationResult MathEntity
     factorial (ScalarEntity scalar) = MI.unResolve result makeScalar
-        where result = BS.sfactorial scalar
+        where result = BS.factorial scalar
     factorial _ = MI.withError MI.InvalidType
+
+    choose :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
+    choose (ScalarEntity choices) (ScalarEntity picks) = MI.unResolve result makeScalar
+        where result = BS.choose choices picks
+    choose _ _ = MI.withError MI.InvalidType
+
+    perm :: MathEntity -> MathEntity -> MI.ComputationResult MathEntity
+    perm (ScalarEntity choices) (ScalarEntity picks) = MI.unResolve result makeScalar
+        where result = BS.perm choices picks
+    perm _ _ = MI.withError MI.InvalidType

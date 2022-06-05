@@ -4,35 +4,31 @@
 
 module BigMatrix (
     BigMatrix,
-    mlist,
-    mseq,
-    mrepeat,
-    midentity,
-    mrows,
-    mcols,
-    mrowLength,
-    mcolLength,
-    mlength,
-    mEqualSize,
+    fromList,
+    fromSeq,
+    identity,
+    rows,
+    cols,
+    rowLength,
+    colLength,
+    equalSize,
     isMatrixMultipliable,
-    mIsSquare,
-    mget,
-    mgetInt,
-    smultm,
-    mmults,
-    vmultm,
-    mmultv,
-    mRowVector,
-    mColVector,
-    mdet,
-    mtranspose,
-    msub,
-    mAddRow,
-    mMultRow,
-    mSwapRows,
-    mAddCol,
-    mMultCol,
-    mSwapCols
+    get2,
+    getInt2,
+    isSquare,
+    leftVectorMult,
+    rightVectorMult,
+    rowVector,
+    colVector,
+    det,
+    transpose,
+    sub2,
+    addRow,
+    multRow,
+    swapRows,
+    addCol,
+    multCol,
+    swapCols
 ) where
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
@@ -66,7 +62,7 @@ module BigMatrix (
 
     _strHelper :: S.Seq BS.BigScalar -> MI.UnaryAction BS.BigScalar String -> Int -> Int -> String
     _strHelper table converter rowsLeft totalCols = case rowsLeft of 0 -> ""
-                                                                     1 -> TP.printf "%s" finalString
+                                                                     1 -> show finalString
                                                                      _ -> TP.printf "%s|%s" finalString next
         where (currentRow, rest) = S.splitAt totalCols table
               stringList = fmap converter currentRow
@@ -74,30 +70,20 @@ module BigMatrix (
               finalString = concat commaSeparated
               next = _strHelper rest converter (rowsLeft - 1) totalCols
 
-    mlist :: [[BS.BigScalar]] -> BigMatrix
-    mlist table = BigMatrix seq rowLength colLength
+    fromList :: [[BS.BigScalar]] -> BigMatrix
+    fromList table = BigMatrix seq rowLength colLength
         where seq = S.fromList $ concat table
               rowLength = length table
               colLength = length $ head table
 
-    mseq :: S.Seq (S.Seq BS.BigScalar) -> BigMatrix
-    mseq table = BigMatrix concatSeq rowLength colLength
+    fromSeq :: S.Seq (S.Seq BS.BigScalar) -> BigMatrix
+    fromSeq table = BigMatrix concatSeq rowLength colLength
         where concatSeq = F.foldl' (S.><) S.empty table
               rowLength = length table
               colLength = length $ S.index table 0
 
-    mrepeat :: BS.BigScalar -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mrepeat scalar rows cols
-        | not $ BS.isExactInteger rows && BS.isExactInteger cols = MI.withError MI.InvalidValue
-        | intRows < 0 || intCols < 0 = MI.withError MI.InvalidValue
-        | otherwise = MI.withValue $ BigMatrix table intRows intCols
-        where intRows = BS.asInt rows
-              intCols = BS.asInt cols
-              elemCount = intRows * intCols
-              table = S.replicate elemCount scalar
-
-    midentity :: BS.BigScalar -> MI.ComputationResult BigMatrix
-    midentity dimensions
+    identity :: BS.BigScalar -> MI.ComputationResult BigMatrix
+    identity dimensions
         | not $ BS.isExactInteger dimensions = MI.withError MI.InvalidValue
         | intDimensions < 0 = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix table intDimensions intDimensions
@@ -112,39 +98,36 @@ module BigMatrix (
               (nextRowIndex, nextColIndex) = _rowTraversal currentRow currentCol dimensions
               next = _makeIdentityMatrix nextRowIndex nextColIndex dimensions
 
-    mrows :: BigMatrix -> BS.BigScalar
-    mrows = BS.integral . mrowLength
+    rows :: BigMatrix -> BS.BigScalar
+    rows = BS.integral . rowLength
 
-    mcols :: BigMatrix -> BS.BigScalar
-    mcols = BS.integral . mcolLength
+    cols :: BigMatrix -> BS.BigScalar
+    cols = BS.integral . colLength
 
-    mrowLength :: BigMatrix -> Int
-    mrowLength (BigMatrix _ rows _) = rows
+    rowLength :: BigMatrix -> Int
+    rowLength (BigMatrix _ rows _) = rows
 
-    mcolLength :: BigMatrix -> Int
-    mcolLength (BigMatrix _ _ cols) = cols
+    colLength :: BigMatrix -> Int
+    colLength (BigMatrix _ _ cols) = cols
 
-    mlength :: BigMatrix -> Int
-    mlength (BigMatrix _ rows cols) = rows * cols
-
-    mEqualSize :: BigMatrix -> BigMatrix -> Bool
-    mEqualSize (BigMatrix _ leftRows leftCols) (BigMatrix _ rightRows rightCols) = (leftRows == rightRows) && (leftCols == rightCols)
+    equalSize :: BigMatrix -> BigMatrix -> Bool
+    equalSize (BigMatrix _ leftRows leftCols) (BigMatrix _ rightRows rightCols) = (leftRows == rightRows) && (leftCols == rightCols)
 
     isMatrixMultipliable :: BigMatrix -> BigMatrix -> Bool
     isMatrixMultipliable (BigMatrix _ _ leftCols) (BigMatrix _ rightRows _) = leftCols == rightRows
 
-    mIsSquare :: BigMatrix -> Bool
-    mIsSquare (BigMatrix _ rows cols) = rows == cols
+    isSquare :: BigMatrix -> Bool
+    isSquare (BigMatrix _ rows cols) = rows == cols
 
-    mget :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BS.BigScalar
-    mget matrix rowIndex colIndex
+    get2 :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BS.BigScalar
+    get2 matrix rowIndex colIndex
         | not $ (BS.isExactInteger rowIndex) && (BS.isExactInteger colIndex) = MI.withError MI.InvalidType
-        | otherwise = mgetInt matrix intRowIndex intColIndex
+        | otherwise = getInt2 matrix intRowIndex intColIndex
         where intRowIndex = BS.asInt rowIndex
               intColIndex = BS.asInt colIndex
 
-    mgetInt :: BigMatrix -> Int -> Int -> MI.ComputationResult BS.BigScalar
-    mgetInt matrix@(BigMatrix table rows cols) rowIndex colIndex
+    getInt2 :: BigMatrix -> Int -> Int -> MI.ComputationResult BS.BigScalar
+    getInt2 matrix@(BigMatrix table rows cols) rowIndex colIndex
         | (rowIndex < 0) || (rowIndex >= rows) || (colIndex < 0) || (colIndex >= cols) = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ S.index table actualIndex
         where actualIndex = rowIndex * cols + colIndex
@@ -160,28 +143,30 @@ module BigMatrix (
 
     _binaryAction :: BS.BinaryScalarAction -> BigMatrix -> BigMatrix -> MI.ComputationResult BigMatrix
     _binaryAction operation left@(BigMatrix leftTable leftRows leftCols) right@(BigMatrix rightTable _ _)
-        | not $ mEqualSize left right = MI.withError MI.InvalidValue
+        | not $ equalSize left right = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix (S.zipWith operation leftTable rightTable) leftRows leftCols
 
-    smultm :: BS.BigScalar -> BigMatrix -> BigMatrix
-    smultm left = _unaryAction (A.unsafeMult left)
+    instance BS.ScalarMultipliable BigMatrix where
+        rightScalarMult left right = MI.withValue $ BS.unsafeRightScalarMult left right
+        leftScalarMult left right = MI.withValue $ BS.unsafeLeftScalarMult left right
+        unsafeRightScalarMult left (BigMatrix rightTable rows cols) = BigMatrix newTable rows cols
+            where newTable = fmap (A.unsafeMult left) rightTable
+        unsafeLeftScalarMult (BigMatrix leftTable rows cols) right = BigMatrix newTable rows cols
+            where newTable = fmap (`A.unsafeMult` right) leftTable
 
-    mmults :: BigMatrix -> BS.BigScalar -> BigMatrix
-    mmults left right = _unaryAction ((flip A.unsafeMult) right) left
+    rightVectorMult :: BV.BigVector -> BigMatrix -> MI.ComputationResult BigMatrix
+    rightVectorMult left = A.mult (rowVector left)
 
-    vmultm :: BV.BigVector -> BigMatrix -> MI.ComputationResult BigMatrix
-    vmultm left = A.mult (mRowVector left)
+    leftVectorMult :: BigMatrix -> BV.BigVector -> MI.ComputationResult BigMatrix
+    leftVectorMult left right = A.mult left (colVector right)
 
-    mmultv :: BigMatrix -> BV.BigVector -> MI.ComputationResult BigMatrix
-    mmultv left right = A.mult left (mColVector right)
-
-    mRowVector :: BV.BigVector -> BigMatrix
-    mRowVector vec = BigMatrix list 1 dimensions
+    rowVector :: BV.BigVector -> BigMatrix
+    rowVector vec = BigMatrix list 1 dimensions
         where dimensions = BV.length1 vec
               list = BV.toSeq vec
     
-    mColVector :: BV.BigVector -> BigMatrix
-    mColVector vec = BigMatrix list dimensions 1
+    colVector :: BV.BigVector -> BigMatrix
+    colVector vec = BigMatrix list dimensions 1
         where dimensions = BV.length1 vec
               list = BV.toSeq vec
 
@@ -207,8 +192,8 @@ module BigMatrix (
         | otherwise = A.unsafePlus elem next
         where elem = A.unsafeMult leftElem rightElem
               next = _mmultHelper2 (index + 1) endIndex rowIndex colIndex left right
-              leftElem = MI.value $ mgetInt left rowIndex index
-              rightElem = MI.value $ mgetInt right index colIndex
+              leftElem = MI.value $ getInt2 left rowIndex index
+              rightElem = MI.value $ getInt2 right index colIndex
 
     _rowTraversal :: Int -> Int -> Int -> (Int, Int)
     _rowTraversal rowIndex colIndex cols = (nextRowIndex, nextColIndex)
@@ -220,87 +205,87 @@ module BigMatrix (
         div left right = MI.errBinResolveRight left invResult A.mult
             where invResult = A.inv right
         inv matrix@(BigMatrix _ rows cols)
-            | not $ mIsSquare matrix = MI.withError MI.InvalidState
+            | not $ isSquare matrix = MI.withError MI.InvalidState
             | BS.zero == detValue = MI.withError MI.InvalidValue
             | otherwise = MI.withValue $ case rows of 1 -> BigMatrix (S.singleton invOfDetValue) 1 1
-                                                      2 -> smultm invOfDetValue (mlist [[val00, val01], [val10, val11]])
-                                                      _ -> smultm invOfDetValue ((mtranspose . _mcofactors) $ _mminor matrix)
-            where detValue = MI.value $ mdet matrix
+                                                      2 -> let val00 = MI.value $ getInt2 matrix 1 1
+                                                               val01 = (A.unsafeNeg . MI.value) $ getInt2 matrix 0 1
+                                                               val10 = (A.unsafeNeg . MI.value) $ getInt2 matrix 1 0
+                                                               val11 = MI.value $ getInt2 matrix 0 0 
+                                                           in BS.unsafeRightScalarMult invOfDetValue (fromList [[val00, val01], [val10, val11]])
+                                                      _ -> BS.unsafeRightScalarMult invOfDetValue ((transpose . _cofactors) $ _minor matrix)
+            where detValue = MI.value $ det matrix
                   invOfDetValue = A.unsafeInv detValue
-                  val00 = MI.value $ mgetInt matrix 1 1
-                  val01 = (A.unsafeNeg . MI.value) $ mgetInt matrix 0 1
-                  val10 = (A.unsafeNeg . MI.value) $ mgetInt matrix 1 0
-                  val11 = MI.value $ mgetInt matrix 0 0
 
     instance A.Negatable BigMatrix where
-        unsafeNeg = smultm BS.negOne
+        unsafeNeg = BS.unsafeRightScalarMult BS.negOne
         neg = MI.withValue . A.unsafeNeg
 
-    mdet :: BigMatrix -> MI.ComputationResult BS.BigScalar
-    mdet matrix@(BigMatrix _ rows cols)
-        | not $ mIsSquare matrix = MI.withError MI.InvalidState
-        | 1 == rows = mgetInt matrix 0 0
-        | otherwise = MI.withValue $ _mdetHelper1 matrix
+    det :: BigMatrix -> MI.ComputationResult BS.BigScalar
+    det matrix@(BigMatrix _ rows cols)
+        | not $ isSquare matrix = MI.withError MI.InvalidState
+        | 1 == rows = (A.inv . MI.value) $ getInt2 matrix 0 0
+        | otherwise = MI.withValue $ _detHelper1 matrix
 
-    _mdetHelper1 :: BigMatrix -> BS.BigScalar
-    _mdetHelper1 matrix@(BigMatrix _ rows _)
+    _detHelper1 :: BigMatrix -> BS.BigScalar
+    _detHelper1 matrix@(BigMatrix _ rows _)
         | 2 == rows = A.unsafeMinus (A.unsafeMult a d) (A.unsafeMult b c)
-        | otherwise = _mdetHelper2 matrix 0
-        where a = MI.value $ mgetInt matrix 0 0
-              b = MI.value $ mgetInt matrix 0 1
-              c = MI.value $ mgetInt matrix 1 0
-              d = MI.value $ mgetInt matrix 1 1
+        | otherwise = _detHelper2 matrix 0
+        where a = MI.value $ getInt2 matrix 0 0
+              b = MI.value $ getInt2 matrix 0 1
+              c = MI.value $ getInt2 matrix 1 0
+              d = MI.value $ getInt2 matrix 1 1
 
-    _mdetHelper2 :: BigMatrix -> Int -> BS.BigScalar
-    _mdetHelper2 matrix@(BigMatrix _ _ cols) colIndex
+    _detHelper2 :: BigMatrix -> Int -> BS.BigScalar
+    _detHelper2 matrix@(BigMatrix _ _ cols) colIndex
         | colIndex == cols = BS.zero
         | otherwise = A.unsafePlus newElem next
-        where a = MI.value $ A.pow BS.negOne (BS.integral colIndex)
-              b = MI.value $ mgetInt matrix 0 colIndex
-              c = (_mdetHelper1 . MI.value) $ _msubHelper1 matrix 0 colIndex
+        where a = A.unsafePow BS.negOne (BS.integral colIndex)
+              b = MI.value $ getInt2 matrix 0 colIndex
+              c = (_detHelper1 . MI.value) $ _msubHelper1 matrix 0 colIndex
               newElem = F.foldr A.unsafeMult BS.one [c, b, a]
-              next = _mdetHelper2 matrix (colIndex + 1)
+              next = _detHelper2 matrix (colIndex + 1)
 
-    _mminor :: BigMatrix -> BigMatrix
-    _mminor matrix@(BigMatrix _ rows cols) = BigMatrix newTable rows cols
-        where newTable = _mminorHelper matrix 0 0
+    _minor :: BigMatrix -> BigMatrix
+    _minor matrix@(BigMatrix _ rows cols) = BigMatrix newTable rows cols
+        where newTable = _minorHelper matrix 0 0
 
-    _mminorHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
-    _mminorHelper matrix@(BigMatrix _ rows cols) rowIndex colIndex
+    _minorHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
+    _minorHelper matrix@(BigMatrix _ rows cols) rowIndex colIndex
         | rowIndex == rows = S.empty
         | otherwise = elem S.<| next
-        where elem = MI.value $ mdet $ MI.value $ _msubHelper1 matrix rowIndex colIndex
+        where elem = MI.value $ det $ MI.value $ _msubHelper1 matrix rowIndex colIndex
               (nextRowIndex, nextColIndex) = _rowTraversal rowIndex colIndex cols
-              next = _mminorHelper matrix nextRowIndex nextColIndex
+              next = _minorHelper matrix nextRowIndex nextColIndex
     
-    _mcofactors :: BigMatrix -> BigMatrix
-    _mcofactors matrix@(BigMatrix table rows cols) = BigMatrix newTable rows cols
-        where newTable = _mcofactorsHelper table True
+    _cofactors :: BigMatrix -> BigMatrix
+    _cofactors matrix@(BigMatrix table rows cols) = BigMatrix newTable rows cols
+        where newTable = _cofactorsHelper table True
 
-    _mcofactorsHelper :: S.Seq BS.BigScalar -> Bool -> S.Seq BS.BigScalar
-    _mcofactorsHelper table sign
+    _cofactorsHelper :: S.Seq BS.BigScalar -> Bool -> S.Seq BS.BigScalar
+    _cofactorsHelper table sign
         | S.null table = S.empty
         | otherwise = elem S.<| next
         where val = S.index table 0
               elem = if sign then A.unsafeNeg val else val
               rest = S.drop 1 table
-              next = _mcofactorsHelper rest (not sign)
+              next = _cofactorsHelper rest (not sign)
     
-    mtranspose :: BigMatrix -> BigMatrix
-    mtranspose matrix@(BigMatrix _ rows cols) = BigMatrix (_mtransposeHelper matrix 0 0) cols rows
+    transpose :: BigMatrix -> BigMatrix
+    transpose matrix@(BigMatrix _ rows cols) = BigMatrix (_transposeHelper matrix 0 0) cols rows
 
-    _mtransposeHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
-    _mtransposeHelper matrix@(BigMatrix _ rows cols) rowIndex colIndex
+    _transposeHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
+    _transposeHelper matrix@(BigMatrix _ rows cols) rowIndex colIndex
         | nextColIndex == cols = S.singleton elem
         | otherwise = elem S.<| next
         where lastRowIndex = rows - 1
               nextRowIndex = if rowIndex == lastRowIndex then 0 else rowIndex + 1
               nextColIndex = if rowIndex == lastRowIndex then colIndex + 1 else colIndex
-              elem = MI.value $ mgetInt matrix rowIndex colIndex
-              next = _mtransposeHelper matrix nextRowIndex nextColIndex
+              elem = MI.value $ getInt2 matrix rowIndex colIndex
+              next = _transposeHelper matrix nextRowIndex nextColIndex
 
-    msub :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    msub matrix avoidRowIndex avoidColIndex = _msubHelper1 matrix avoidRowIndexInt avoidColIndexInt
+    sub2 :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    sub2 matrix avoidRowIndex avoidColIndex = _msubHelper1 matrix avoidRowIndexInt avoidColIndexInt
         where avoidRowIndexInt = BS.asInt avoidRowIndex
               avoidColIndexInt = BS.asInt avoidColIndex
 
@@ -321,18 +306,18 @@ module BigMatrix (
               currentRow = startElems S.>< endElems
               nextRows = _msubHelper2 restRows rows cols avoidRowIndex avoidColIndex (rowIndex + 1)
 
-    mAddRow :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mAddRow matrix@(BigMatrix _ rows cols) fromRowIndex toRowIndex
+    addRow :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    addRow matrix@(BigMatrix _ rows cols) fromRowIndex toRowIndex
         | not $ (BS.isExactInteger fromRowIndex) && (BS.isExactInteger toRowIndex) = MI.withError MI.InvalidValue
         | intFromRowIndex < 0 || intFromRowIndex >= rows || intToRowIndex < 0 || intToRowIndex >= rows = MI.withError MI.InvalidValue
         | intFromRowIndex == intToRowIndex = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix newSeq rows cols
         where intFromRowIndex = BS.asInt fromRowIndex
               intToRowIndex = BS.asInt toRowIndex
-              newSeq = _mAddRowHelper matrix intFromRowIndex intToRowIndex
+              newSeq = _addRowHelper matrix intFromRowIndex intToRowIndex
 
-    _mAddRowHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
-    _mAddRowHelper (BigMatrix table rows cols) fromRowIndex toRowIndex = startElems S.>< newElems S.>< endElems
+    _addRowHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
+    _addRowHelper (BigMatrix table rows cols) fromRowIndex toRowIndex = startElems S.>< newElems S.>< endElems
         where actualFromIndex = rows * fromRowIndex
               actualToIndex = rows * toRowIndex
               fromRow = S.take cols (S.drop actualFromIndex table)
@@ -341,34 +326,34 @@ module BigMatrix (
               newElems = S.zipWith A.unsafePlus fromRow toRow
               endElems = S.drop (actualToIndex + cols) table
 
-    mMultRow :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mMultRow matrix@(BigMatrix _ rows cols) multValue rowIndex
+    multRow :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    multRow matrix@(BigMatrix _ rows cols) multValue rowIndex
         | not $ BS.isExactInteger rowIndex = MI.withError MI.InvalidValue
         | intRowIndex < 0 || intRowIndex >= rows = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix newTable rows cols
         where intRowIndex = BS.asInt rowIndex
-              newTable = _mMultRowHelper matrix multValue intRowIndex
+              newTable = _multRowHelper matrix multValue intRowIndex
 
-    _mMultRowHelper :: BigMatrix -> BS.BigScalar -> Int -> S.Seq BS.BigScalar
-    _mMultRowHelper (BigMatrix table rows cols) multValue rowIndex = startElems S.>< newElems S.>< endElems
+    _multRowHelper :: BigMatrix -> BS.BigScalar -> Int -> S.Seq BS.BigScalar
+    _multRowHelper (BigMatrix table rows cols) multValue rowIndex = startElems S.>< newElems S.>< endElems
         where actualIndex = rows * rowIndex
               multRow = S.take cols (S.drop actualIndex table)
               startElems = S.take actualIndex table
               newElems = fmap (A.unsafeMult multValue) multRow
               endElems = S.drop (actualIndex + cols) table
 
-    mSwapRows :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mSwapRows matrix@(BigMatrix _ rows cols) rowIndex1 rowIndex2
+    swapRows :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    swapRows matrix@(BigMatrix _ rows cols) rowIndex1 rowIndex2
         | not $ (BS.isExactInteger rowIndex1) && (BS.isExactInteger rowIndex2) = MI.withError MI.InvalidValue
         | (intRowIndex1 < 0) || (intRowIndex1 >= rows) || (intRowIndex2 < 0) || (intRowIndex2 >= rows) = MI.withError MI.InvalidValue
         | intRowIndex1 == intRowIndex2 = MI.withValue matrix
         | otherwise = MI.withValue $ BigMatrix newTable rows cols
         where intRowIndex1 = BS.asInt rowIndex1
               intRowIndex2 = BS.asInt rowIndex2
-              newTable = _mSwapRowsHelper matrix intRowIndex1 intRowIndex2
+              newTable = _swapRowsHelper matrix intRowIndex1 intRowIndex2
     
-    _mSwapRowsHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
-    _mSwapRowsHelper (BigMatrix table rows cols) rowIndex1 rowIndex2 = startElems S.>< higherElems S.>< midElems S.>< lowerElems S.>< endElems
+    _swapRowsHelper :: BigMatrix -> Int -> Int -> S.Seq BS.BigScalar
+    _swapRowsHelper (BigMatrix table rows cols) rowIndex1 rowIndex2 = startElems S.>< higherElems S.>< midElems S.>< lowerElems S.>< endElems
         where actualRowIndex1 = rows * rowIndex1
               actualRowIndex2 = rows * rowIndex2
               lowerRowIndex = min actualRowIndex1 actualRowIndex2
@@ -379,18 +364,18 @@ module BigMatrix (
               higherElems = S.take cols (S.drop higherRowIndex table)
               endElems = S.drop (higherRowIndex + cols) table
 
-    mAddCol :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mAddCol (BigMatrix table rows cols) fromColIndex toColIndex
+    addCol :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    addCol (BigMatrix table rows cols) fromColIndex toColIndex
         | not $ (BS.isExactInteger fromColIndex) && (BS.isExactInteger toColIndex) = MI.withError MI.InvalidValue
         | (intFromColIndex < 0) || (intFromColIndex >= cols) || (intToColIndex < 0) || (intToColIndex >= cols) = MI.withError MI.InvalidValue
         | intFromColIndex == intToColIndex = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix newTable rows cols
         where intFromColIndex = BS.asInt fromColIndex
               intToColIndex = BS.asInt toColIndex
-              newTable = _mAddColHelper table rows cols intFromColIndex intToColIndex 0
+              newTable = _addColHelper table rows cols intFromColIndex intToColIndex 0
 
-    _mAddColHelper :: S.Seq BS.BigScalar -> Int -> Int -> Int -> Int -> Int -> S.Seq BS.BigScalar
-    _mAddColHelper table rows cols fromColIndex toColIndex currentRowIndex
+    _addColHelper :: S.Seq BS.BigScalar -> Int -> Int -> Int -> Int -> Int -> S.Seq BS.BigScalar
+    _addColHelper table rows cols fromColIndex toColIndex currentRowIndex
         | rows == currentRowIndex = S.empty
         | otherwise = newRow S.>< nextRows
         where (row, restRows) = S.splitAt cols table
@@ -400,18 +385,18 @@ module BigMatrix (
               startRow = S.take toColIndex row
               endRow = S.drop (toColIndex + 1) row
               newRow = startRow S.>< newElem S.>< endRow
-              nextRows = _mAddColHelper restRows rows cols fromColIndex toColIndex (currentRowIndex + 1)
+              nextRows = _addColHelper restRows rows cols fromColIndex toColIndex (currentRowIndex + 1)
 
-    mMultCol :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mMultCol (BigMatrix table rows cols) multValue colIndex
+    multCol :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    multCol (BigMatrix table rows cols) multValue colIndex
         | not $ BS.isExactInteger colIndex = MI.withError MI.InvalidValue
         | intColIndex < 0 || intColIndex >= cols = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix newTable rows cols
         where intColIndex = BS.asInt colIndex
-              newTable = _mMultColHelper table rows cols multValue intColIndex 0
+              newTable = _multColHelper table rows cols multValue intColIndex 0
 
-    _mMultColHelper :: S.Seq BS.BigScalar -> Int -> Int -> BS.BigScalar -> Int -> Int -> S.Seq BS.BigScalar
-    _mMultColHelper table rows cols multValue colIndex currentRowIndex
+    _multColHelper :: S.Seq BS.BigScalar -> Int -> Int -> BS.BigScalar -> Int -> Int -> S.Seq BS.BigScalar
+    _multColHelper table rows cols multValue colIndex currentRowIndex
         | rows == currentRowIndex = S.empty
         | otherwise = newRow S.>< nextRows
         where (row, restRows) = S.splitAt cols table
@@ -420,19 +405,19 @@ module BigMatrix (
               startRow = S.take colIndex row
               endRow = S.drop (colIndex + 1) row
               newRow = startRow S.>< newElem S.>< endRow
-              nextRows = _mMultColHelper restRows rows cols multValue colIndex (currentRowIndex + 1)
+              nextRows = _multColHelper restRows rows cols multValue colIndex (currentRowIndex + 1)
 
-    mSwapCols :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
-    mSwapCols (BigMatrix table rows cols) colIndex1 colIndex2
+    swapCols :: BigMatrix -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigMatrix
+    swapCols (BigMatrix table rows cols) colIndex1 colIndex2
         | not $ (BS.isExactInteger colIndex1) && (BS.isExactInteger colIndex2) = MI.withError MI.InvalidValue
         | intColIndex1 < 0 || intColIndex1 >= cols || intColIndex2 < 0 || intColIndex2 >= cols = MI.withError MI.InvalidValue
         | otherwise = MI.withValue $ BigMatrix newTable rows cols
         where intColIndex1 = BS.asInt colIndex1
               intColIndex2 = BS.asInt colIndex2
-              newTable = _mSwapColsHelper table rows cols intColIndex1 intColIndex2 0
+              newTable = _swapColsHelper table rows cols intColIndex1 intColIndex2 0
 
-    _mSwapColsHelper :: S.Seq BS.BigScalar -> Int -> Int -> Int -> Int -> Int -> S.Seq BS.BigScalar
-    _mSwapColsHelper table rows cols colIndex1 colIndex2 currentRowIndex
+    _swapColsHelper :: S.Seq BS.BigScalar -> Int -> Int -> Int -> Int -> Int -> S.Seq BS.BigScalar
+    _swapColsHelper table rows cols colIndex1 colIndex2 currentRowIndex
         | rows == currentRowIndex = S.empty
         | otherwise = newRow S.>< nextRows
         where (row, restRows) = S.splitAt cols table
@@ -444,4 +429,4 @@ module BigMatrix (
               midRow = S.take (maxColIndex - minColIndex - 1) (S.drop (minColIndex + 1) row)
               endRow = S.drop (maxColIndex + 1) row
               newRow = startRow S.>< maxElem S.>< midRow S.>< minElem S.>< endRow
-              nextRows = _mSwapColsHelper restRows rows cols colIndex1 colIndex2 (currentRowIndex + 1)
+              nextRows = _swapColsHelper restRows rows cols colIndex1 colIndex2 (currentRowIndex + 1)

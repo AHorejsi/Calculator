@@ -51,4 +51,4 @@ module CalcSettings (
     } deriving (Show)
 
     settings :: GeneralSettings
-    settings = GeneralSettings (PrintSettings (Sigfig 15) Standard) Radian Rectangular
+    settings = GeneralSettings (PrintSettings (Sigfig 50) Standard) Radian Rectangular

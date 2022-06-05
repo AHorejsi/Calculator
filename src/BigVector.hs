@@ -13,7 +13,7 @@ module BigVector (
     isNull,
     length1,
     size1,
-    equalSize1,
+    equalSize,
     getInt1,
     get1,
     dot,
@@ -100,8 +100,8 @@ module BigVector (
     size1 :: BigVector -> BS.BigScalar
     size1 = BS.integral . length1
 
-    equalSize1 :: BigVector -> BigVector -> Bool
-    equalSize1 left right = (length1 left) == (length1 right)
+    equalSize :: BigVector -> BigVector -> Bool
+    equalSize left right = (length1 left) == (length1 right)
 
     getInt1 :: BigVector -> Int -> MI.ComputationResult BS.BigScalar
     getInt1 vec@(BigVector pos) index
@@ -132,12 +132,12 @@ module BigVector (
 
     _binaryAction :: BS.BinaryScalarAction -> BigVector -> BigVector -> MI.ComputationResult BigVector
     _binaryAction action left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ equalSize1 left right = MI.withError MI.InvalidValue
+        | not $ equalSize left right = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . fromSeq) $ S.zipWith action leftPos rightPos
 
     dot :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     dot left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ equalSize1 left right = MI.withError MI.InvalidValue
+        | not $ equalSize left right = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . _sum) $ S.zipWith A.unsafeMult leftPos rightPos
 
     _sum :: S.Seq BS.BigScalar -> BS.BigScalar
@@ -236,7 +236,7 @@ module BigVector (
               halfSize = div listSize 2
 
     _containsNonreal :: S.Seq BS.BigScalar -> Bool
-    _containsNonreal seq = or $ fmap (not . BS.sIsReal) seq
+    _containsNonreal = or . (fmap $ not . BS.isReal)
 
     _quickSelect :: Int -> S.Seq BS.BigScalar -> BS.BigScalar
     _quickSelect index vals
@@ -272,8 +272,8 @@ module BigVector (
     _count :: S.Seq BS.BigScalar -> HM.HashMap BS.BigScalar Int -> HM.HashMap BS.BigScalar Int
     _count S.Empty counter = counter
     _count vals counter
-        | HM.member headVal counter = _count rest (HM.insert headVal 1 counter)
-        | otherwise = _count rest (HM.adjust (+1) headVal counter)
+        | HM.member headVal counter = _count rest (HM.adjust (+1) headVal counter)
+        | otherwise = _count rest (HM.insert headVal 1 counter)
         where headVal = S.index vals 0
               rest = S.drop 1 vals
 
@@ -316,9 +316,12 @@ module BigVector (
 
     _isSortedHelper :: MI.ErrableBinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> MI.ComputationResult Bool
     _isSortedHelper comp vals
-        | S.length vals <= 1 = MI.withValue True
-        | otherwise = MI.binCombine result next (&&)
-        where firstVal = S.index vals 0
+        | 0 == size = MI.withValue True
+        | 1 == size = MI.withValue $ BS.isReal firstVal
+        | MI.isFailure result = result
+        | otherwise = MI.binResolveRight (MI.value result) next (&&)
+        where size = S.length vals
+              firstVal = S.index vals 0
               secondVal = S.index vals 1
               result = comp firstVal secondVal
               rest = S.drop 1 vals
@@ -331,15 +334,15 @@ module BigVector (
 
     dist :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     dist left right
-        | not $ equalSize1 left right = MI.withError MI.InvalidValue
+        | not $ equalSize left right = MI.withError MI.InvalidValue
         | otherwise = (MI.withValue . A.unsafeSqrt . _sum) $ fmap square (_pos subtValue)
         where subtValue = A.unsafeMinus left right
               square = MI.value . ((flip A.pow) BS.two)
 
     angle :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
     angle left right
-        | (not $ equalSize1 left right) || (isNull left) || (isNull right) = MI.withError MI.InvalidValue
-        | otherwise = BS.sacos $ A.unsafeDiv dotProd absProd
+        | (not $ equalSize left right) || (isNull left) || (isNull right) = MI.withError MI.InvalidValue
+        | otherwise = BS.arccosine $ A.unsafeDiv dotProd absProd
         where dotProd = MI.value $ dot left right
               absProd = A.unsafeMult (BS.unsafeAbsol left) (BS.unsafeAbsol right)
 
