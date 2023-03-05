@@ -5,366 +5,161 @@
 
 module BigVector (
     BigVector,
-    fromList,
-    fromSeq,
-    toList,
-    toSeq,
-    empty,
-    isNull,
-    length1,
-    size1,
+    vector,
+    sizeInt,
+    size,
+    null,
     equalSize,
-    getInt1,
-    get1,
+    getInt,
+    get,
+    plus,
+    minus,
+    scale,
     dot,
-    cross,
-    dist,
+    cross2D,
+    cross3D,
+    scalarMultiplyLeft,
+    scalarMultiplyRight,
+    negate,
+    absolute,
+    normalize,
     angle,
-    findMin,
-    findMax,
-    mean,
-    gmean,
-    hmean,
-    median,
-    range,
-    midrange,
-    mode,
-    sum,
-    cumsum,
-    prod,
-    cumprod,
-    sortAsc,
-    sortDesc,
-    isSortedAsc,
-    isSortedDesc,
-    isSorted,
-    sub1,
-    concat,
-    merge
+    distance,
+    toContainer
 ) where
-    import Prelude hiding (sum, concat)
+    import Prelude hiding (negate, null)
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
-    import qualified Data.Sequence as S
-    import qualified Data.Foldable as F
+    import qualified Data.Foldable as Fo
+    import qualified Data.Functor as Fu
     import qualified Data.Hashable as H
-    import qualified Data.HashMap.Lazy as HM
+    import qualified Indexable as I
     import qualified Actions as A
-    import qualified Stringify as Str
-    import qualified MathInfo as MI
-    import qualified BigScalar as BS
-    
-    newtype BigVector = BigVector {
-        _pos :: S.Seq BS.BigScalar
-    } deriving (G.Generic, Eq)
+    import qualified Equality as E
+    import qualified BigNumber as BN
 
-    instance H.Hashable BigVector where
-        hashWithSalt salt (BigVector pos) = H.hashWithSalt salt (F.toList pos)
+    newtype BigVector v = BigVector {
+        _values :: v BN.BigNumber
+    } deriving (G.Generic)
 
-    instance Show BigVector where
-        show vec = _str "Vector[%s]" vec show
+    instance (I.Indexable v) => Eq (BigVector v) where
+        (==) left@(BigVector leftValues) right@(BigVector rightValues) = sizeComp && valueComp
+            where sizeComp = equalSize left right
+                  valueComp = leftValues == rightValues
 
-    instance Str.Stringifier BigVector where
-        stringify sets vec = _str "<%s>" vec (Str.stringify sets)
+    instance (I.Indexable v) => E.Equality (BigVector v) where
+        eq left right = A.success $ left == right
 
-    _str :: String -> BigVector -> MI.UnaryAction BS.BigScalar String -> String
-    _str format vec converter = TP.printf format strVal
-        where strVal = _strHelper vec converter
+    instance (I.Indexable v) => H.Hashable (BigVector v) where
+        hashWithSalt salt (BigVector values) = H.hashWithSalt salt values
 
-    _strHelper :: BigVector -> MI.UnaryAction BS.BigScalar String -> String
-    _strHelper (BigVector pos) converter = F.foldl' (++) "" commaSeparated
-        where stringList = fmap converter pos
-              commaSeparated = S.intersperse "," stringList
+    vector :: (Fo.Foldable f, I.Indexable v) => f BN.BigNumber -> BigVector v
+    vector values
+        | Fo.null values = error "Vectors must have a length of at least 1"
+        | otherwise = BigVector $ I.switch values
 
-    fromList :: [BS.BigScalar] -> BigVector
-    fromList list = BigVector $ S.fromList list
+    sizeInt :: (Fo.Foldable v) => BigVector v -> Int
+    sizeInt (BigVector values) = Fo.length values
 
-    fromSeq :: S.Seq BS.BigScalar -> BigVector
-    fromSeq = BigVector
+    size :: (Fo.Foldable v) => BigVector v -> BN.BigNumber
+    size = BN.asNumber . sizeInt
 
-    toList :: BigVector -> [BS.BigScalar]
-    toList (BigVector pos) = F.toList pos
+    null :: (Fo.Foldable v) => BigVector v -> Bool
+    null (BigVector values) = Fo.all (==BN.zero) values
 
-    toSeq :: BigVector -> S.Seq BS.BigScalar
-    toSeq (BigVector pos) = pos
+    equalSize :: (Fo.Foldable v) => BigVector v -> BigVector v -> Bool
+    equalSize left right = (sizeInt left) == (sizeInt right)
 
-    empty :: BigVector
-    empty = BigVector S.Empty
+    getInt :: (I.Indexable v) => BigVector v -> Int -> A.Computation BN.BigNumber
+    getInt vec@(BigVector values) index
+        | (index < 0) || (index >= size) = A.failure A.IndexOutOfBounds "Index outside the bounds of the vector"
+        | otherwise = A.success $ I.at values index
+        where size = sizeInt vec
 
-    isNull :: BigVector -> Bool
-    isNull (BigVector pos) = F.all (==BS.zero) pos
+    get :: (I.Indexable v) => BigVector v -> BN.BigNumber -> A.Computation BN.BigNumber
+    get vec index
+        | not $ BN.isInteger index = A.failure A.NotInteger "All indices must be integers"
+        | otherwise = getInt vec intIndex
+        where intIndex = BN.asIntegral index
 
-    length1 :: BigVector -> Int
-    length1 (BigVector pos) = S.length pos
+    _binaryElementwise :: (I.Indexable v) => BN.BinaryNumberAction -> BigVector v -> BigVector v -> A.Computation (BigVector v)
+    _binaryElementwise action left@(BigVector leftValues) right@(BigVector rightValues)
+        | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must be of equal dimensions for this action"
+        | otherwise = (A.success . BigVector) $ I.pairOn action leftValues rightValues
 
-    size1 :: BigVector -> BS.BigScalar
-    size1 = BS.integral . length1
+    plus :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    plus = _binaryElementwise BN.plus
 
-    equalSize :: BigVector -> BigVector -> Bool
-    equalSize left right = (length1 left) == (length1 right)
+    minus :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    minus = _binaryElementwise BN.minus
 
-    getInt1 :: BigVector -> Int -> MI.ComputationResult BS.BigScalar
-    getInt1 vec@(BigVector pos) index
-        | index < 0 || index >= size = MI.withError MI.InvalidValue
-        | otherwise = MI.withValue $ S.index pos index
-        where size = length1 vec
+    scale :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    scale = _binaryElementwise BN.multiply
 
-    get1 :: BigVector -> BS.BigScalar -> MI.ComputationResult BS.BigScalar
-    get1 vec index
-        | not $ BS.isExactInteger index = MI.withError MI.InvalidValue
-        | otherwise = getInt1 vec intIndex
-        where intIndex = BS.asInt index        
+    dot :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    dot left@(BigVector leftValues) right@(BigVector rightValues)
+        | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must have the same length for this operation"
+        | otherwise = A.success $ Fo.foldr BN.plus BN.zero (I.pairOn BN.multiply leftValues rightValues)
 
-    instance A.Addable BigVector where
-        plus = _binaryAction A.unsafePlus
+    cross2D :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    cross2D left right
+        | 2 == leftSize && leftSize == rightSize = A.success $ BN.minus (BN.multiply leftXPos rightYPos) (BN.multiply leftYPos rightXPos)
+        | otherwise = A.failure A.InvalidInput "Cross product can only be applied to 2D or 3D vectors"
+        where leftSize = sizeInt left
+              rightSize = sizeInt right
+              leftXPos = A.value $ getInt left 0
+              leftYPos = A.value $ getInt left 1
+              rightXPos = A.value $ getInt right 0
+              rightYPos = A.value $ getInt right 1
 
-    instance A.Subtractable BigVector where
-        minus = _binaryAction A.unsafeMinus
+    cross3D :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    cross3D left right
+        | 3 == leftSize && leftSize == rightSize = (A.success . BigVector) $ I.switch [resultXPos, resultYPos, resultZPos]
+        | otherwise = A.failure A.InvalidInput "Cross product can only be applied to 2D or 3D vectors"
+        where leftSize = sizeInt left
+              rightSize = sizeInt right
+              leftXPos = A.value $ getInt left 0
+              leftYPos = A.value $ getInt left 1
+              leftZPos = A.value $ getInt left 2
+              rightXPos = A.value $ getInt right 0
+              rightYPos = A.value $ getInt right 1
+              rightZPos = A.value $ getInt right 2
+              resultXPos = BN.minus (BN.multiply leftYPos rightZPos) (BN.multiply leftZPos rightYPos)
+              resultYPos = BN.minus (BN.multiply leftZPos rightXPos) (BN.multiply leftXPos rightZPos)
+              resultZPos = BN.minus (BN.multiply leftXPos rightYPos) (BN.multiply leftYPos rightXPos)
 
-    instance BS.ScalarMultipliable BigVector where
-        rightScalarMult left right = MI.withValue $ BS.unsafeRightScalarMult left right
-        leftScalarMult left right = MI.withValue $ BS.unsafeLeftScalarMult left right
-        unsafeRightScalarMult left (BigVector rightPos) = fromSeq $ fmap (A.unsafeMult left) rightPos
-        unsafeLeftScalarMult (BigVector leftPos) right = fromSeq $ fmap (`A.unsafeMult` right) leftPos
+    _unaryElementwise :: (Fu.Functor v) => BN.UnaryNumberAction -> BigVector v -> BigVector v
+    _unaryElementwise action (BigVector values) = BigVector $ Fu.fmap action values
 
-    instance A.Scalable BigVector where
-        scale = _binaryAction A.unsafeMult
+    scalarMultiplyLeft :: (Fu.Functor v) => BN.BigNumber -> BigVector v -> BigVector v
+    scalarMultiplyLeft left = _unaryElementwise (BN.multiply left)
 
-    _binaryAction :: BS.BinaryScalarAction -> BigVector -> BigVector -> MI.ComputationResult BigVector
-    _binaryAction action left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ equalSize left right = MI.withError MI.InvalidValue
-        | otherwise = (MI.withValue . fromSeq) $ S.zipWith action leftPos rightPos
+    scalarMultiplyRight :: (Fu.Functor v) => BigVector v -> BN.BigNumber -> BigVector v
+    scalarMultiplyRight left right = _unaryElementwise (`BN.multiply` right) left
 
-    dot :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
-    dot left@(BigVector leftPos) right@(BigVector rightPos)
-        | not $ equalSize left right = MI.withError MI.InvalidValue
-        | otherwise = (MI.withValue . _sum) $ S.zipWith A.unsafeMult leftPos rightPos
+    negate :: (Fu.Functor v) => BigVector v -> BigVector v
+    negate = scalarMultiplyLeft BN.negOne
 
-    _sum :: S.Seq BS.BigScalar -> BS.BigScalar
-    _sum = F.foldr A.unsafePlus BS.zero
+    absolute :: (I.Indexable v) => BigVector v -> BN.BigNumber
+    absolute vec = (BN.squareRoot . A.value) $ dot vec vec
 
-    cross :: BigVector -> BigVector -> MI.ComputationResult BigVector
-    cross left right
-        | 3 == leftSize && leftSize == rightSize = MI.withValue $ fromList [resultXPos, resultYPos, resultZPos]
-        | otherwise = MI.withError MI.InvalidValue
-        where leftSize = length1 left
-              rightSize = length1 right
-              leftXPos = MI.value $ getInt1 left 0
-              leftYPos = MI.value $ getInt1 left 1
-              leftZPos = MI.value $ getInt1 left 2
-              rightXPos = MI.value $ getInt1 right 0
-              rightYPos = MI.value $ getInt1 right 1
-              rightZPos = MI.value $ getInt1 right 2
-              resultXPos = A.unsafeMinus (A.unsafeMult leftYPos rightZPos) (A.unsafeMult leftZPos rightYPos)
-              resultYPos = A.unsafeMinus (A.unsafeMult leftZPos rightXPos) (A.unsafeMult leftXPos rightZPos)
-              resultZPos = A.unsafeMinus (A.unsafeMult leftXPos rightYPos) (A.unsafeMult leftYPos rightXPos)
+    normalize :: (I.Indexable v) => BigVector v -> A.Computation (BigVector v)
+    normalize vec = A.resolveBinary denominator (A.success vec) scalarMultiplyLeft
+        where denominator = BN.inverse $ absolute vec
 
-    instance A.Negatable BigVector where
-        neg = BS.rightScalarMult BS.negOne
-
-    instance BS.Graphable BigVector where
-        absol = MI.withValue . BS.unsafeAbsol
-        unsafeAbsol vec = (A.unsafeSqrt . MI.value) $ dot vec vec
-        norm vec
-            | isNull vec = MI.withError MI.InvalidValue
-            | otherwise = BS.leftScalarMult vec (A.unsafeDiv BS.one (BS.unsafeAbsol vec))
-
-    findMin :: BigVector -> MI.ComputationResult BS.BigScalar
-    findMin (BigVector S.Empty) = MI.withError MI.InvalidState
-    findMin (BigVector vals) = _findMinMax A.min headVal vals
-        where headVal = S.index vals 0
-
-    findMax :: BigVector -> MI.ComputationResult BS.BigScalar
-    findMax (BigVector S.Empty) = MI.withError MI.InvalidState
-    findMax (BigVector vals) = _findMinMax A.max headVal vals
-        where headVal = S.index vals 0
-
-    _findMinMax :: BS.ErrableBinaryScalarAction -> BS.BigScalar -> S.Seq BS.BigScalar -> MI.ComputationResult BS.BigScalar
-    _findMinMax action best S.Empty = MI.withValue best
-    _findMinMax action best (val S.:<| vals) = MI.errBinCombine result next action
-        where result = action best val
-              next = _findMinMax action (MI.value result) vals
-
-    sum :: BigVector -> BS.BigScalar
-    sum (BigVector vals) = _sum vals
-
-    cumsum :: BigVector -> BigVector
-    cumsum (BigVector S.Empty) = empty
-    cumsum (BigVector vals) = fromSeq $ S.scanl A.unsafePlus headVal rest
-        where headVal = S.index vals 0
-              rest = S.drop 1 vals
-
-    prod :: BigVector -> BS.BigScalar
-    prod (BigVector vals) = F.foldl' A.unsafeMult BS.one vals
-
-    cumprod :: BigVector -> BigVector
-    cumprod (BigVector S.Empty) = empty
-    cumprod (BigVector vals) = fromSeq $ S.scanl A.unsafeMult headVal rest
-        where headVal = S.index vals 0
-              rest = S.drop 1 vals
-
-    mean :: BigVector -> MI.ComputationResult BS.BigScalar
-    mean (BigVector S.Empty) = MI.withError MI.InvalidState
-    mean list = A.div sumValue listSize
-        where listSize = size1 list
-              sumValue = sum list
-
-    gmean :: BigVector -> MI.ComputationResult BS.BigScalar
-    gmean (BigVector S.Empty) = MI.withError MI.InvalidState
-    gmean list = A.pow prodValue (A.unsafeInv listSize)
-        where listSize = size1 list
-              prodValue = prod list
-
-    hmean :: BigVector -> MI.ComputationResult BS.BigScalar
-    hmean (BigVector S.Empty) = MI.withError MI.InvalidState
-    hmean list@(BigVector vals)
-        | F.elem BS.zero vals = MI.withError MI.InvalidValue
-        | otherwise = A.div listSize invListSum 
-        where listSize = size1 list
-              invList = fromSeq $ fmap A.unsafeInv vals
-              invListSum = sum invList
-
-    median :: BigVector -> MI.ComputationResult BS.BigScalar
-    median list@(BigVector vals)
-        | 0 == listSize = MI.withError MI.InvalidState
-        | _containsNonreal vals = MI.withError MI.InvalidValue
-        | even listSize = let first = _quickSelect (halfSize - 1) vals
-                              second = _quickSelect halfSize vals
-                          in  A.mult (A.unsafePlus first second) BS.half
-        | otherwise = MI.withValue $ _quickSelect halfSize vals
-        where listSize = length1 list
-              halfSize = div listSize 2
-
-    _containsNonreal :: S.Seq BS.BigScalar -> Bool
-    _containsNonreal = or . (fmap $ not . BS.isReal)
-
-    _quickSelect :: Int -> S.Seq BS.BigScalar -> BS.BigScalar
-    _quickSelect index vals
-        | index < leftSize = _quickSelect index left
-        | index > leftSize = _quickSelect (index - leftSize - 1) right
-        | otherwise = headVal
-        where headVal = S.index vals 0
-              tail = S.drop 1 vals
-              (left, right) = S.partition (`A.unsafeLessEqual` headVal) tail
-              leftSize = S.length left
-
-    range :: BigVector -> MI.ComputationResult BS.BigScalar
-    range (BigVector S.Empty) = MI.withError MI.InvalidState
-    range list = MI.binCombine maxValue minValue A.unsafeMinus
-        where minValue = findMin list
-              maxValue = findMax list
-
-    midrange :: BigVector -> MI.ComputationResult BS.BigScalar
-    midrange (BigVector S.Empty) = MI.withError MI.InvalidState
-    midrange list = MI.binResolveLeft minmaxSum BS.half A.unsafeMult
-        where minValue = findMin list
-              maxValue = findMax list
-              minmaxSum = MI.binCombine minValue maxValue A.unsafePlus
-              
-    mode :: BigVector -> MI.ComputationResult BigVector
-    mode (BigVector vals)
-        | 1 == maxCount = MI.withValue empty
-        | otherwise = (MI.withValue . fromList) $ HM.keys modeMap
-        where counts = _count vals HM.empty
-              maxCount = maximum $ HM.elems counts
-              modeMap = HM.filter (==maxCount) counts
-
-    _count :: S.Seq BS.BigScalar -> HM.HashMap BS.BigScalar Int -> HM.HashMap BS.BigScalar Int
-    _count S.Empty counter = counter
-    _count vals counter
-        | HM.member headVal counter = _count rest (HM.adjust (+1) headVal counter)
-        | otherwise = _count rest (HM.insert headVal 1 counter)
-        where headVal = S.index vals 0
-              rest = S.drop 1 vals
-
-    sortAsc :: BigVector -> MI.ComputationResult BigVector
-    sortAsc (BigVector vals)
-        | _containsNonreal vals = MI.withError MI.InvalidValue
-        | otherwise = (MI.withValue . fromSeq) $ _sortHelper A.unsafeLessEqual vals
-
-    sortDesc :: BigVector -> MI.ComputationResult BigVector
-    sortDesc (BigVector vals)
-        | _containsNonreal vals = MI.withError MI.InvalidValue
-        | otherwise = (MI.withValue . fromSeq) $ _sortHelper A.unsafeGreaterEqual vals
-
-    _sortHelper :: MI.BinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar
-    _sortHelper ordFunc vals
-        | size <= 1 = vals
-        | otherwise = _merge ordFunc leftSorted rightSorted
-        where size = S.length vals
-              halfLength = div size 2
-              (left, right) = S.splitAt halfLength vals
-              leftSorted = _sortHelper ordFunc left
-              rightSorted = _sortHelper ordFunc right
-
-    _merge :: MI.BinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar -> S.Seq BS.BigScalar
-    _merge _ S.Empty right = right
-    _merge _ left S.Empty = left
-    _merge ordFunc left right
-        | ordFunc leftHead rightHead = leftHead S.<| (_merge ordFunc leftRest right)
-        | otherwise = rightHead S.<| (_merge ordFunc left rightRest)
-        where leftHead = S.index left 0
-              rightHead = S.index right 0
-              leftRest = S.drop 1 left
-              rightRest = S.drop 1 right
-
-    isSortedAsc :: BigVector -> MI.ComputationResult Bool
-    isSortedAsc (BigVector vals) = _isSortedHelper A.lessEqual vals
-
-    isSortedDesc :: BigVector -> MI.ComputationResult Bool
-    isSortedDesc (BigVector vals) = _isSortedHelper A.greaterEqual vals
-
-    _isSortedHelper :: MI.ErrableBinaryPredicate BS.BigScalar BS.BigScalar -> S.Seq BS.BigScalar -> MI.ComputationResult Bool
-    _isSortedHelper comp vals
-        | 0 == size = MI.withValue True
-        | 1 == size = MI.withValue $ BS.isReal firstVal
-        | MI.isFailure result = result
-        | otherwise = MI.binResolveRight (MI.value result) next (&&)
-        where size = S.length vals
-              firstVal = S.index vals 0
-              secondVal = S.index vals 1
-              result = comp firstVal secondVal
-              rest = S.drop 1 vals
-              next = _isSortedHelper comp rest
-
-    isSorted :: BigVector -> MI.ComputationResult Bool
-    isSorted vec = MI.binCombine ascSort descSort (||)
-        where ascSort = isSortedAsc vec
-              descSort = isSortedDesc vec
-
-    dist :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
-    dist left right
-        | not $ equalSize left right = MI.withError MI.InvalidValue
-        | otherwise = (MI.withValue . A.unsafeSqrt . _sum) $ fmap square (_pos subtValue)
-        where subtValue = A.unsafeMinus left right
-              square = MI.value . ((flip A.pow) BS.two)
-
-    angle :: BigVector -> BigVector -> MI.ComputationResult BS.BigScalar
+    angle :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
     angle left right
-        | (not $ equalSize left right) || (isNull left) || (isNull right) = MI.withError MI.InvalidValue
-        | otherwise = BS.arccosine $ A.unsafeDiv dotProd absProd
-        where dotProd = MI.value $ dot left right
-              absProd = A.unsafeMult (BS.unsafeAbsol left) (BS.unsafeAbsol right)
+        | (not $ equalSize left right) || (null left) || (null right) = A.failure A.InvalidInput "Vectors must be of equal dimensions and neither can be null"
+        | otherwise = (BN.arccosine . A.value) $ BN.divide dotProd absProd
+        where dotProd = A.value $ dot left right
+              absProd = BN.multiply (absolute left) (absolute right)
 
-    sub1 :: BigVector -> BS.BigScalar -> BS.BigScalar -> MI.ComputationResult BigVector
-    sub1 vec@(BigVector vals) lowIndex highIndex
-        | lowIndexInt < 0 || lowIndexInt >= vecLength || highIndexInt < 0 || highIndexInt >= vecLength || lowIndexInt > highIndexInt = MI.withError MI.InvalidValue
-        | otherwise = MI.withValue $ fromSeq sublist
-        where vecLength = length1 vec
-              lowIndexInt = BS.asInt lowIndex
-              highIndexInt = BS.asInt highIndex
-              sublist = S.take (highIndexInt - lowIndexInt) (S.drop lowIndexInt vals)
+    distance :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    distance left right
+        | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must have equal dimensions for this operation"
+        | otherwise = ((A.success . BN.squareRoot) . (Fo.foldr BN.plus BN.zero)) $ Fu.fmap square (_values subtValue)
+        where subtValue = A.value $ minus left right
+              square = (`BN.power` BN.two)
 
-    concat :: BigVector -> BigVector -> BigVector
-    concat (BigVector leftVals) (BigVector rightVals) = BigVector $ leftVals S.>< rightVals
-
-    merge :: BigVector -> BigVector -> MI.ComputationResult BigVector
-    merge left@(BigVector leftVals) right@(BigVector rightVals)
-        | MI.isFailure leftSortAsc = MI.withError MI.InvalidType
-        | (MI.value leftSortAsc) && (MI.value rightSortAsc) = (MI.withValue . fromSeq) $ _merge A.unsafeLessEqual leftVals rightVals
-        | (MI.value leftSortDesc) && (MI.value rightSortDesc) = (MI.withValue . fromSeq) $ _merge A.unsafeGreaterEqual leftVals rightVals
-        | otherwise = MI.withError MI.InvalidState
-        where leftSortAsc = isSortedAsc left
-              rightSortAsc = isSortedAsc right
-              leftSortDesc = isSortedDesc left
-              rightSortDesc = isSortedDesc right
+    toContainer :: (I.Indexable v1, I.Indexable v2) => BigVector v1 -> v2 BN.BigNumber
+    toContainer (BigVector values) = I.switch values

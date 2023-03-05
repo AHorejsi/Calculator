@@ -1,54 +1,29 @@
 module CalcSettings (
-    StringMode(
-        Round,
-        Sigfig,
-        Simple
-    ),
-    NotationMode(
-        Standard,
-        Scientific
-    ),
     AngleMode(
         Degree,
         Radian
     ),
-    ImagRepresentation(
+    ImagRep(
         Rectangular,
         Polar,
         Exponential
     ),
-    PrintSettings,
     GeneralSettings,
-    prints,
-    notation,
     angle,
     imagRep,
+    pretty,
     settings,
-    string,
 ) where
 
-    data StringMode = Round {
-        _roundCount :: Int
-    } | Sigfig {
-        _sigfigCount :: Int
-    } | Simple deriving (Eq, Show)
+    data AngleMode = Degree | Radian
 
-    data NotationMode = Standard | Scientific deriving (Enum, Eq, Show)
-
-    data AngleMode = Degree | Radian deriving (Enum, Eq, Show)
-
-    data ImagRepresentation = Rectangular | Polar | Exponential deriving (Enum, Eq, Show)
-
-    data PrintSettings = PrintSettings {
-        string :: StringMode,
-        notation :: NotationMode
-    } deriving (Show)
+    data ImagRep = Rectangular | Polar | Exponential
 
     data GeneralSettings = GeneralSettings {
-        prints :: PrintSettings,
         angle :: AngleMode,
-        imagRep :: ImagRepresentation
-    } deriving (Show)
+        imagRep :: ImagRep,
+        pretty :: Bool
+    }
 
     settings :: GeneralSettings
-    settings = GeneralSettings (PrintSettings (Sigfig 50) Standard) Radian Rectangular
+    settings = GeneralSettings Radian Rectangular False

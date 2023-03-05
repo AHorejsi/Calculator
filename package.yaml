@@ -1,41 +1,40 @@
-name:                Calculator
-version:             0.1.0.0
-github:              "AHorejsi/Calculator"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2022 Author name here"
+name: Calculator
+version: 0.1.0.0
+github: "AHorejsi/Calculator"
+license: BSD3
+author: "Alex Horejsi"
+maintainer: "alex.horejsi59@gmail.com"
+copyright: "2022 Alex Horejsi"
 
 extra-source-files:
 - README.md
 - ChangeLog.md
 
 # Metadata used when publishing your package
-synopsis:            Calculator
-category:            Desktop
+synopsis: Calculator
+category: Desktop
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/Calculator#readme>
+description: Please see the README on GitHub at <https://github.com/AHorejsi/Calculator#readme>
 
 dependencies:
 - base >= 4.7 && < 5
+- vector
 - containers
 - hashable
 - unordered-containers
-- hashtables
 - numbers
 - parsec
-- threepenny-gui
 
 library:
   source-dirs: src
 
 executables:
   Calculator:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
     - -threaded
     - -rtsopts
@@ -45,9 +44,9 @@ executables:
     - Calculator
 
 tests:
-  Calculator-test:
-    main:                Spec.hs
-    source-dirs:         test
+  Calculator-Test:
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
     - -threaded
     - -rtsopts

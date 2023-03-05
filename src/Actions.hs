@@ -1,125 +1,226 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant bracket" #-}
+{-# HLINT ignore "Move brackets to avoid $" #-}
 
 module Actions (
-    Addable,
-    Subtractable,
-    Multipliable,
-    Scalable,
-    Divisible,
-    Power,
-    Negatable,
-    Comparable,
-    plus,
-    unsafePlus,
-    minus,
-    unsafeMinus,
-    mult,
-    unsafeMult,
-    scale,
-    unsafeScale,
-    div,
-    inv,
-    unsafeDiv,
-    unsafeInv,
-    pow,
-    sqrt,
-    log,
-    logBase,
-    exp,
-    unsafePow,
-    unsafeSqrt,
-    unsafeExp,
-    unsafeLog,
-    unsafeLogBase,
-    neg,
-    unsafeNeg,
-    min,
-    max,
-    less,
-    greater,
-    lessEqual,
-    greaterEqual,
-    unsafeMin,
-    unsafeMax,
-    unsafeLess,
-    unsafeGreater,
-    unsafeLessEqual,
-    unsafeGreaterEqual
+    ComputationError(
+        InvalidInput,
+        DivideByZero,
+        LogOfZero,
+        NonsquareMatrix,
+        DeterminantOfZero,
+        NotInteger,
+        NotReal,
+        NotComplex,
+        NegativeInput,
+        NotComparable,
+        IndexOutOfBounds,
+        UnequalDimensions
+    ),
+    Computation,
+    UnaryAction,
+    BinaryAction,
+    TernaryAction,
+    UnaryPredicate,
+    BinaryPredicate,
+    TernaryPredicate,
+    ErrableUnaryAction,
+    ErrableBinaryAction,
+    ErrableTernaryAction,
+    (.:),
+    (.::),
+    success,
+    failure,
+    isSuccess,
+    isFailure,
+    convert,
+    value,
+    asUnary,
+    asBinary,
+    asTernary,
+    asErrableUnary,
+    asErrableBinary,
+    asErrableTernary,
+    resolveUnary,
+    resolveErrableUnary,
+    resolveBinary,
+    resolveErrableBinary,
+    resolveTernary,
+    resolveErrableTernary
 ) where
-    import Prelude hiding (div, pow, exp, log, logBase, sqrt, min, max, mod, rem)
-    import qualified MathInfo as MI
+    import qualified Text.Printf as TP
 
-    class Addable a where
-        plus :: a -> a -> MI.ComputationResult a
-        unsafePlus :: a -> a -> a
-        unsafePlus = MI.binaryNonerror plus
+    -- | Represents the reason for why a computation failed
+    data ComputationError =
+        -- | Indicates that the associated computation cannot accept negative values
+        NegativeInput |
+        -- | Indicates that the associated computation tried to divide by zero
+        DivideByZero |
+        -- | Indicates that the associated computation tried to compute the logarithm of zero
+        LogOfZero |
+        -- | Indicates that the associated computation cannot use a nonsquare matrix
+        NonsquareMatrix |
+        -- | Indicates that the associated computation cannot use a matrix with a determinant of zero
+        DeterminantOfZero |
+        -- | Indicates that the associated computation required an integer, but was provided something else
+        NotInteger |
+        -- | Indicates that the associated computation required a real number, but was provided something else
+        NotReal |
+        -- | Indicates that the associated computation required a complex number, but was provided something else
+        NotComplex |
+        -- | Indicates that the associated computation required a comparable type, but was provided something else
+        NotComparable |
+        -- | Indicates that the associated computation received an index that was outside the bounds of the structure in question
+        IndexOutOfBounds |
+        -- | Indicates that the associated computation required multiple structures of the same dimensions, but received some that were not
+        UnequalDimensions |
+        -- | Indicates that the associated computation received input that was invalid for an unspecified reason
+        InvalidInput
+        deriving (Enum, Show)
 
-    class Subtractable a where
-        minus :: a -> a -> MI.ComputationResult a
-        unsafeMinus :: a -> a -> a
-        unsafeMinus = MI.binaryNonerror minus
+    -- | Represents the result of a computation that may have succeeded or failed. This type is similar to
+    -- the 'Maybe' type except the failure type contains information about what went wrong
+    data Computation a =
+        -- | Represents a successful computation that produced valid output
+        Success {
+            -- | The end result of a successful computation
+            _val :: a
+        } |
+        -- | Represents a failed computation that could not be computed
+        Failure {
+            -- | The type of error that occurred during the computation
+            _err :: ComputationError,
+            -- | A description, in plain english, detailing the error
+            _message :: String
+        }
 
-    class Multipliable a where
-        mult :: a -> a -> MI.ComputationResult a
-        unsafeMult :: a -> a -> a
-        unsafeMult = MI.binaryNonerror mult
+    instance (Show a) => Show (Computation a) where
+        show comp
+            | isSuccess comp = show $ _val comp
+            | otherwise = TP.printf "ERROR: %s\n\t%s" errType errMsg
+            where errType = show $ _err comp
+                  errMsg = _message comp
 
-    class Scalable a where
-        scale :: a -> a -> MI.ComputationResult a
-        unsafeScale :: a -> a -> a
-        unsafeScale = MI.binaryNonerror scale
+    -- | Represents a computation that takes 1 input. Guaranteed to succeed
+    type UnaryAction a b = a -> b
+    -- | Represents a computation that takes 2 inputs. Guaranteed to succeed
+    type BinaryAction a b c = a -> b -> c
+    -- | Represents a computation that takes 3 inputs. Guaranteed to succeed
+    type TernaryAction a b c d = a -> b -> c -> d
 
-    class Divisible a where
-        div :: a -> a -> MI.ComputationResult a
-        inv :: a -> MI.ComputationResult a
-        unsafeDiv :: a -> a -> a
-        unsafeDiv = MI.binaryNonerror div
-        unsafeInv :: a -> a
-        unsafeInv = MI.unaryNonerror inv
+    -- | Represents a predicate function that takes 1 input
+    type UnaryPredicate a = UnaryAction a Bool
+    -- | Represents a predicate function that takes 2 inputs
+    type BinaryPredicate a b = BinaryAction a b Bool
+    -- | Represents a predicate function that takes 3 inputs
+    type TernaryPredicate a b c = TernaryAction a b c Bool
 
-    class Power a where
-        pow :: a -> a -> MI.ComputationResult a
-        sqrt :: a -> MI.ComputationResult a
-        exp :: a -> MI.ComputationResult a
-        log :: a -> MI.ComputationResult a
-        logBase :: a -> a -> MI.ComputationResult a
-        unsafePow :: a -> a -> a
-        unsafePow = MI.binaryNonerror pow
-        unsafeSqrt :: a -> a
-        unsafeSqrt = MI.unaryNonerror sqrt
-        unsafeExp :: a -> a
-        unsafeExp = MI.unaryNonerror exp
-        unsafeLog :: a -> a
-        unsafeLog = MI.unaryNonerror log
-        unsafeLogBase :: a -> a -> a
-        unsafeLogBase = MI.binaryNonerror logBase
+    -- | Represents a computation that takes 1 input. Could fail
+    type ErrableUnaryAction a b = UnaryAction a (Computation b)
+    -- | Represents a computation that takes 2 inputs. Could fail
+    type ErrableBinaryAction a b c = BinaryAction a b (Computation c)
+    -- | Represents a computation that takes 3 inputs. Could fail
+    type ErrableTernaryAction a b c d = TernaryAction a b c (Computation d)
 
-    class Negatable a where
-        neg :: a -> MI.ComputationResult a
-        unsafeNeg :: a -> a
-        unsafeNeg = MI.unaryNonerror neg
+    -- | Function composition for 2-input functions
+    (.:) :: UnaryAction c d -> BinaryAction a b c -> BinaryAction a b d
+    (.:) f g = (f . ) . g
 
-    class Comparable a where
-        min :: a -> a -> MI.ComputationResult a
-        max :: a -> a -> MI.ComputationResult a
-        less :: a -> a -> MI.ComputationResult Bool
-        greater :: a -> a -> MI.ComputationResult Bool
-        greater left right = less right left
-        lessEqual :: a -> a -> MI.ComputationResult Bool
-        lessEqual left right = MI.unResolve greaterResult not
-            where greaterResult = greater left right
-        greaterEqual :: a -> a -> MI.ComputationResult Bool
-        greaterEqual left right = MI.unResolve lessResult not
-            where lessResult = less left right
-        unsafeMin :: a -> a -> a
-        unsafeMin = MI.binaryNonerror min
-        unsafeMax :: a -> a -> a
-        unsafeMax = MI.binaryNonerror max
-        unsafeLess :: a -> a -> Bool
-        unsafeLess = MI.binaryNonerror less
-        unsafeGreater :: a -> a -> Bool
-        unsafeGreater = MI.binaryNonerror greater
-        unsafeLessEqual :: a -> a -> Bool
-        unsafeLessEqual = MI.binaryNonerror lessEqual
-        unsafeGreaterEqual :: a -> a -> Bool
-        unsafeGreaterEqual = MI.binaryNonerror greaterEqual
+    -- | Function composition for 3-input functions
+    (.::) :: UnaryAction d e -> TernaryAction a b c d -> TernaryAction a b c e
+    (.::) f g = ((f . ) . ) . g
+
+    -- | Constructs a successful 'Computation'
+    success :: a -> Computation a
+    success = Success
+
+    -- | Constructs a failed 'Computation'
+    failure :: ComputationError -> String -> Computation a
+    failure = Failure
+
+    -- | Converts a failed computation to another 'Computation' type
+    -- | Throws exception if provided a successful computation
+    convert :: Computation a -> Computation b
+    convert (Failure err msg) = failure err msg
+    convert _ = error "Computation is valid"
+
+    -- | Retrieves the value from a successful 'Computation'
+    -- | Throws exception if provided a failed computation
+    value :: Computation a -> a
+    value (Success val) = val
+    value _ = error "Computation is invalid"
+
+    -- | Determines if the given 'Computation' succeeded
+    isSuccess :: Computation a -> Bool
+    isSuccess Success{} = True
+    isSuccess _ = False
+
+    -- | Determines if the given 'Computation' failed
+    isFailure :: Computation a -> Bool
+    isFailure = not . isSuccess
+
+    -- | Converts an errable unary action to a non-errable unary action
+    -- | The non-errable action can throw an exception if an error occurs
+    asUnary :: ErrableUnaryAction a b -> UnaryAction a b
+    asUnary action = value . action
+
+    -- | Converts an errable binary action to a non-errable binary action
+    -- | The non-errable action can throw an exception if an error occurs
+    asBinary :: ErrableBinaryAction a b c -> BinaryAction a b c
+    asBinary action = value .: action
+
+    -- | Converts an errable ternary action to a non-errable ternary action
+    -- | The non-errable action can throw an exception if an error occurs
+    asTernary :: ErrableTernaryAction a b c d -> TernaryAction a b c d
+    asTernary action = value .:: action
+
+    -- | Converts a non-errable unary action to an errable unary action
+    asErrableUnary :: UnaryAction a b -> ErrableUnaryAction a b
+    asErrableUnary action = success . action
+
+    -- | Converts a non-errable binary action to an errable binary action
+    asErrableBinary :: BinaryAction a b c -> ErrableBinaryAction a b c
+    asErrableBinary action = success .: action
+
+    -- | Converts a non-errable ternary action to an errable ternary action
+    asErrableTernary :: TernaryAction a b c d -> ErrableTernaryAction a b c d
+    asErrableTernary action = success .:: action
+
+    -- | Applies the given unary action to the given 'Computation' if it was successful
+    -- | Otherwise, the failed 'Computation' is returned
+    resolveUnary :: Computation a -> UnaryAction a b -> Computation b
+    resolveUnary comp action = resolveErrableUnary comp (asErrableUnary action)
+
+    -- | Applies the given errable unary action to the given 'Computation' if it was successful
+    -- | Otherwise, the failed 'Computation' is returned
+    resolveErrableUnary :: Computation a -> ErrableUnaryAction a b -> Computation b
+    resolveErrableUnary comp action
+        | isFailure comp = convert comp
+        | otherwise = action (_val comp)
+
+    -- | Applies the given binary function to the given 'Computation' instances if they both were successful
+    -- | Otherwise, the leftmost failed 'Computation' is returned 
+    resolveBinary :: Computation a -> Computation b -> BinaryAction a b c -> Computation c
+    resolveBinary left right action = resolveErrableBinary left right (asErrableBinary action)
+
+    -- | Applies the given errable binary function to the given 'Computation' instances if they both were successful
+    -- | Otherwise, the leftmost failed 'Computation' is returned
+    resolveErrableBinary :: Computation a -> Computation b -> ErrableBinaryAction a b c -> Computation c
+    resolveErrableBinary left right action
+        | isFailure left = convert left
+        | isFailure right = convert right
+        | otherwise = action (_val left) (_val right)
+
+    -- | Applies the given ternary function to the given 'Computation' instances if they all were successful
+    -- | Otherwise, the leftmost failed 'Computation' is returned
+    resolveTernary :: Computation a -> Computation b -> Computation c -> TernaryAction a b c d -> Computation d
+    resolveTernary first second third action = resolveErrableTernary first second third (asErrableTernary action)
+
+    -- | Applies the given errable ternary function to the given 'Computation' instances if they all were successful
+    -- | Otherwise, the leftmost failed 'Computation' is returned
+    resolveErrableTernary :: Computation a -> Computation b -> Computation c -> ErrableTernaryAction a b c d -> Computation d
+    resolveErrableTernary first second third action
+        | isFailure first = convert first
+        | isFailure second = convert second
+        | isFailure third = convert third
+        | otherwise = action (_val first) (_val second) (_val third)
