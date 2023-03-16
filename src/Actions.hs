@@ -78,19 +78,19 @@ module Actions (
         InvalidInput
         deriving (Enum, Show)
 
-    -- | Represents the result of a computation that may have succeeded or failed. This type is similar to
+    -- | Represents the result of a computation that may have succeeded or failed. Similar to
     -- the 'Maybe' type except the failure type contains information about what went wrong
     data Computation a =
         -- | Represents a successful computation that produced valid output
         Success {
-            -- | The end result of a successful computation
+            -- | End result of a successful computation
             _val :: a
         } |
         -- | Represents a failed computation that could not be computed
         Failure {
-            -- | The type of error that occurred during the computation
+            -- | Type of error that occurred during the computation
             _err :: ComputationError,
-            -- | A description, in plain english, detailing the error
+            -- | Description, in plain english, detailing the error
             _message :: String
         }
 
@@ -115,11 +115,11 @@ module Actions (
     -- | Represents a predicate function that takes 3 inputs
     type TernaryPredicate a b c = TernaryAction a b c Bool
 
-    -- | Represents a computation that takes 1 input. Could fail
+    -- | Represents a computation that takes 1 input. Could fail on invalid inputs
     type ErrableUnaryAction a b = UnaryAction a (Computation b)
-    -- | Represents a computation that takes 2 inputs. Could fail
+    -- | Represents a computation that takes 2 inputs. Could fail on invalid inputs
     type ErrableBinaryAction a b c = BinaryAction a b (Computation c)
-    -- | Represents a computation that takes 3 inputs. Could fail
+    -- | Represents a computation that takes 3 inputs. Could fail on invalid inputs
     type ErrableTernaryAction a b c d = TernaryAction a b c (Computation d)
 
     -- | Function composition for 2-input functions
@@ -148,7 +148,7 @@ module Actions (
     -- | Throws exception if provided a failed computation
     value :: Computation a -> a
     value (Success val) = val
-    value _ = error "Computation is invalid"
+    value _ = error "Computation is not valid"
 
     -- | Determines if the given 'Computation' succeeded
     isSuccess :: Computation a -> Bool
@@ -186,24 +186,24 @@ module Actions (
     asErrableTernary :: TernaryAction a b c d -> ErrableTernaryAction a b c d
     asErrableTernary action = success .:: action
 
-    -- | Applies the given unary action to the given 'Computation' if it was successful
+    -- | Applies the given unary action to the given 'Computation' if it was successful.
     -- | Otherwise, the failed 'Computation' is returned
     resolveUnary :: Computation a -> UnaryAction a b -> Computation b
     resolveUnary comp action = resolveErrableUnary comp (asErrableUnary action)
 
-    -- | Applies the given errable unary action to the given 'Computation' if it was successful
+    -- | Applies the given errable unary action to the given 'Computation' if it was successful.
     -- | Otherwise, the failed 'Computation' is returned
     resolveErrableUnary :: Computation a -> ErrableUnaryAction a b -> Computation b
     resolveErrableUnary comp action
         | isFailure comp = convert comp
         | otherwise = action (_val comp)
 
-    -- | Applies the given binary function to the given 'Computation' instances if they both were successful
+    -- | Applies the given binary function to the given 'Computation' instances if they both were successful.
     -- | Otherwise, the leftmost failed 'Computation' is returned 
     resolveBinary :: Computation a -> Computation b -> BinaryAction a b c -> Computation c
     resolveBinary left right action = resolveErrableBinary left right (asErrableBinary action)
 
-    -- | Applies the given errable binary function to the given 'Computation' instances if they both were successful
+    -- | Applies the given errable binary function to the given 'Computation' instances if they both were successful.
     -- | Otherwise, the leftmost failed 'Computation' is returned
     resolveErrableBinary :: Computation a -> Computation b -> ErrableBinaryAction a b c -> Computation c
     resolveErrableBinary left right action
@@ -211,12 +211,12 @@ module Actions (
         | isFailure right = convert right
         | otherwise = action (_val left) (_val right)
 
-    -- | Applies the given ternary function to the given 'Computation' instances if they all were successful
+    -- | Applies the given ternary function to the given 'Computation' instances if they all were successful.
     -- | Otherwise, the leftmost failed 'Computation' is returned
     resolveTernary :: Computation a -> Computation b -> Computation c -> TernaryAction a b c d -> Computation d
     resolveTernary first second third action = resolveErrableTernary first second third (asErrableTernary action)
 
-    -- | Applies the given errable ternary function to the given 'Computation' instances if they all were successful
+    -- | Applies the given errable ternary function to the given 'Computation' instances if they all were successful.
     -- | Otherwise, the leftmost failed 'Computation' is returned
     resolveErrableTernary :: Computation a -> Computation b -> Computation c -> ErrableTernaryAction a b c d -> Computation d
     resolveErrableTernary first second third action

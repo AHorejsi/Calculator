@@ -7,9 +7,6 @@ module BigTuple (
     import qualified Data.Foldable as Fo
     import qualified Indexable as I
 
-    newtype BigTuple a v = BigTuple {
+    newtype BigTuple v a = BigTuple {
         _values :: v a
     } deriving (G.Generic)
-
-    tuple :: (Fo.Foldable f, I.Indexable v) => f a -> BigTuple a v
-    tuple = BigTuple . I.switch

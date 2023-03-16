@@ -11,23 +11,17 @@ module BigTensor (
     import qualified Data.Hashable as H
     import qualified Indexable as I
     import qualified Actions as A
-    import qualified Equality as E
     import qualified BigNumber as BN
 
-    data BigTensor v d = BigTensor {
-        _values :: v BN.BigNumber,
+    data BigTensor v d a = BigTensor {
+        _values :: v (BN.BigNumber a),
         _dimensions :: d Int
     } deriving (G.Generic)
 
-    instance (I.Indexable v, I.Indexable d) => Eq (BigTensor v d) where
-        (==) (BigTensor leftVals leftDimensions) (BigTensor rightVals rightDimensions) = sizeComp && valueComp
-            where sizeComp = leftDimensions == rightDimensions
-                  valueComp = leftVals == rightVals
+    instance (I.Indexable v, I.Indexable d, Eq a) => Eq (BigTensor v d a) where
+        (==) (BigTensor leftVals leftDimensions) (BigTensor rightVals rightDimensions) = leftDimensions == rightDimensions && leftVals == rightVals
 
-    instance (I.Indexable v, I.Indexable d) => E.Equality (BigTensor v d) where
-        eq left right = A.success $ left == right
-
-    instance (I.Indexable v, I.Indexable d) => H.Hashable (BigTensor v d) where
+    instance (I.Indexable v, I.Indexable d, H.Hashable a) => H.Hashable (BigTensor v d a) where
         hashWithSalt salt (BigTensor values dimensions) = H.hashWithSalt dimensionHash valueHash
-            where valueHash = H.hashWithSalt salt values
-                  dimensionHash = H.hashWithSalt salt dimensions
+            where valueHash = Fo.sum $ Fu.fmap (H.hashWithSalt salt) values
+                  dimensionHash = Fo.sum $ Fu.fmap (H.hashWithSalt salt) dimensions

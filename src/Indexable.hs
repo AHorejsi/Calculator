@@ -6,7 +6,6 @@ module Indexable (
     Indexable,
     count,
     empty,
-    none,
     at,
     prepend,
     draw,
@@ -21,7 +20,8 @@ module Indexable (
     attach,
     sieve,
     only,
-    link
+    link,
+    hashIndexable
 ) where
     import qualified Data.Maybe as M
     import qualified Data.Foldable as Fo
@@ -37,8 +37,6 @@ module Indexable (
         count :: f a -> Int
         -- | Returns an empty version of the given 'Indexable'
         empty :: f a
-        -- | Checks if the given 'Indexable' is empty
-        none :: f a -> Bool
         -- | Accesses the element at the given index from the given 'Indexable'
         at :: f a -> Int -> a
         -- | Inserts a new element at the beginning of the given 'Indexable'
@@ -79,7 +77,6 @@ module Indexable (
     instance Indexable S.Seq where
         count = S.length
         empty = S.empty
-        none = S.null
         at = M.fromJust A..: (S.!?)
         prepend = (S.<|)
         draw = S.take
@@ -93,7 +90,6 @@ module Indexable (
     instance Indexable V.Vector where
         count = V.length
         empty = V.empty
-        none = V.null
         at = (V.!)
         prepend = V.cons
         draw = V.take
@@ -107,7 +103,6 @@ module Indexable (
     instance Indexable [] where
         count = length
         empty = []
-        none = null
         at = (!!)
         prepend = (:)
         draw = take
@@ -118,11 +113,10 @@ module Indexable (
         attach = (++)
         sieve = filter
 
-    instance (Indexable f, H.Hashable a) => H.Hashable (f a) where
-        hashWithSalt salt vals = Fo.foldr H.hashWithSalt salt hashed
-            where hashed = Fu.fmap (H.hashWithSalt salt) vals
+    equalIndexable :: (I.Indexable f) => f a -> f a -> Bool
+    equalIndexable left right = equalSize && equalValues
+        where equalSize = (Fo.length left) == (Fo.length right)
+              equalValues = Fo.and $ pairOn (==) left right
 
-    instance (Indexable f, Eq a) => Eq (f a) where
-        (==) left right = equalSize && sameElements
-            where equalSize = (Fo.length left) == (Fo.length right)
-                  sameElements = Fo.and $ pairOn (==) left right
+    hashIndexable :: (I.Indexable f) => Int -> f a -> Int
+    hashIndexable salt indexable = Fo.sum $ Fu.fmap (H.hashWithSalt salt) indexable

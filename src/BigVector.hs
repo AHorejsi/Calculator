@@ -35,73 +35,67 @@ module BigVector (
     import qualified Data.Hashable as H
     import qualified Indexable as I
     import qualified Actions as A
-    import qualified Equality as E
     import qualified BigNumber as BN
 
-    newtype BigVector v = BigVector {
-        _values :: v BN.BigNumber
+    newtype BigVector v a = BigVector {
+        _values :: v (BN.BigNumber a)
     } deriving (G.Generic)
 
-    instance (I.Indexable v) => Eq (BigVector v) where
-        (==) left@(BigVector leftValues) right@(BigVector rightValues) = sizeComp && valueComp
-            where sizeComp = equalSize left right
-                  valueComp = leftValues == rightValues
+    instance (I.Indexable v, Eq a) => Eq (BigVector v a) where
+        (==) left@(BigVector leftValues) right@(BigVector rightValues) = I.equalIndexable leftValues rightValues
 
-    instance (I.Indexable v) => E.Equality (BigVector v) where
-        eq left right = A.success $ left == right
+    instance (I.Indexable v, H.Hashable a) => H.Hashable (BigVector v a) where
+        hashWithSalt salt (BigVector values) = I.hashIndexable salt values
 
-    instance (I.Indexable v) => H.Hashable (BigVector v) where
-        hashWithSalt salt (BigVector values) = H.hashWithSalt salt values
-
-    vector :: (Fo.Foldable f, I.Indexable v) => f BN.BigNumber -> BigVector v
+    vector :: (Fo.Foldable f, I.Indexable v) => f (BN.BigNumber a) -> BigVector v a
     vector values
         | Fo.null values = error "Vectors must have a length of at least 1"
         | otherwise = BigVector $ I.switch values
 
-    sizeInt :: (Fo.Foldable v) => BigVector v -> Int
+    sizeInt :: (Fo.Foldable v) => BigVector v a -> Int
     sizeInt (BigVector values) = Fo.length values
 
-    size :: (Fo.Foldable v) => BigVector v -> BN.BigNumber
+    size :: (Fo.Foldable v, Num a) => BigVector v a -> BN.BigNumber a
     size = BN.asNumber . sizeInt
 
-    null :: (Fo.Foldable v) => BigVector v -> Bool
+    null :: (Fo.Foldable v, Num a, Eq a) => BigVector v a -> Bool
     null (BigVector values) = Fo.all (==BN.zero) values
 
-    equalSize :: (Fo.Foldable v) => BigVector v -> BigVector v -> Bool
+    equalSize :: (Fo.Foldable v) => BigVector v a -> BigVector v b -> Bool
     equalSize left right = (sizeInt left) == (sizeInt right)
 
-    getInt :: (I.Indexable v) => BigVector v -> Int -> A.Computation BN.BigNumber
+    getInt :: (I.Indexable v) => BigVector v a -> Int -> A.Computation (BN.BigNumber a)
     getInt vec@(BigVector values) index
         | (index < 0) || (index >= size) = A.failure A.IndexOutOfBounds "Index outside the bounds of the vector"
         | otherwise = A.success $ I.at values index
         where size = sizeInt vec
 
-    get :: (I.Indexable v) => BigVector v -> BN.BigNumber -> A.Computation BN.BigNumber
+    get :: (I.Indexable v, RealFrac a) => BigVector v a -> BN.BigNumber a -> A.Computation (BN.BigNumber a)
     get vec index
         | not $ BN.isInteger index = A.failure A.NotInteger "All indices must be integers"
         | otherwise = getInt vec intIndex
         where intIndex = BN.asIntegral index
 
-    _binaryElementwise :: (I.Indexable v) => BN.BinaryNumberAction -> BigVector v -> BigVector v -> A.Computation (BigVector v)
+    _binaryElementwise :: (I.Indexable v, Num a) => BN.BinaryNumberAction a -> BigVector v a -> BigVector v a -> A.Computation (BigVector v a)
     _binaryElementwise action left@(BigVector leftValues) right@(BigVector rightValues)
         | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must be of equal dimensions for this action"
         | otherwise = (A.success . BigVector) $ I.pairOn action leftValues rightValues
 
-    plus :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    plus :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BigVector v a)
     plus = _binaryElementwise BN.plus
 
-    minus :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    minus :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BigVector v a)
     minus = _binaryElementwise BN.minus
 
-    scale :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    scale :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BigVector v a)
     scale = _binaryElementwise BN.multiply
 
-    dot :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    dot :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     dot left@(BigVector leftValues) right@(BigVector rightValues)
         | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must have the same length for this operation"
         | otherwise = A.success $ Fo.foldr BN.plus BN.zero (I.pairOn BN.multiply leftValues rightValues)
 
-    cross2D :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    cross2D :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     cross2D left right
         | 2 == leftSize && leftSize == rightSize = A.success $ BN.minus (BN.multiply leftXPos rightYPos) (BN.multiply leftYPos rightXPos)
         | otherwise = A.failure A.InvalidInput "Cross product can only be applied to 2D or 3D vectors"
@@ -112,7 +106,7 @@ module BigVector (
               rightXPos = A.value $ getInt right 0
               rightYPos = A.value $ getInt right 1
 
-    cross3D :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation (BigVector v)
+    cross3D :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BigVector v a)
     cross3D left right
         | 3 == leftSize && leftSize == rightSize = (A.success . BigVector) $ I.switch [resultXPos, resultYPos, resultZPos]
         | otherwise = A.failure A.InvalidInput "Cross product can only be applied to 2D or 3D vectors"
@@ -128,38 +122,38 @@ module BigVector (
               resultYPos = BN.minus (BN.multiply leftZPos rightXPos) (BN.multiply leftXPos rightZPos)
               resultZPos = BN.minus (BN.multiply leftXPos rightYPos) (BN.multiply leftYPos rightXPos)
 
-    _unaryElementwise :: (Fu.Functor v) => BN.UnaryNumberAction -> BigVector v -> BigVector v
+    _unaryElementwise :: (Fu.Functor v, Num a) => BN.UnaryNumberAction a -> BigVector v a -> BigVector v a
     _unaryElementwise action (BigVector values) = BigVector $ Fu.fmap action values
 
-    scalarMultiplyLeft :: (Fu.Functor v) => BN.BigNumber -> BigVector v -> BigVector v
+    scalarMultiplyLeft :: (Fu.Functor v, Num a, Eq a) => BN.BigNumber a -> BigVector v a -> BigVector v a
     scalarMultiplyLeft left = _unaryElementwise (BN.multiply left)
 
-    scalarMultiplyRight :: (Fu.Functor v) => BigVector v -> BN.BigNumber -> BigVector v
+    scalarMultiplyRight :: (Fu.Functor v, Num a, Eq a) => BigVector v a -> BN.BigNumber a -> BigVector v a
     scalarMultiplyRight left right = _unaryElementwise (`BN.multiply` right) left
 
-    negate :: (Fu.Functor v) => BigVector v -> BigVector v
+    negate :: (Fu.Functor v, Num a, Eq a) => BigVector v a -> BigVector v a
     negate = scalarMultiplyLeft BN.negOne
 
-    absolute :: (I.Indexable v) => BigVector v -> BN.BigNumber
+    absolute :: (I.Indexable v, RealFloat a) => BigVector v a -> BN.BigNumber a
     absolute vec = (BN.squareRoot . A.value) $ dot vec vec
 
-    normalize :: (I.Indexable v) => BigVector v -> A.Computation (BigVector v)
+    normalize :: (I.Indexable v, RealFloat a, Eq a) => BigVector v a -> A.Computation (BigVector v a)
     normalize vec = A.resolveBinary denominator (A.success vec) scalarMultiplyLeft
         where denominator = BN.inverse $ absolute vec
 
-    angle :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    angle :: (I.Indexable v, RealFloat a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     angle left right
         | (not $ equalSize left right) || (null left) || (null right) = A.failure A.InvalidInput "Vectors must be of equal dimensions and neither can be null"
         | otherwise = (BN.arccosine . A.value) $ BN.divide dotProd absProd
         where dotProd = A.value $ dot left right
               absProd = BN.multiply (absolute left) (absolute right)
 
-    distance :: (I.Indexable v) => BigVector v -> BigVector v -> A.Computation BN.BigNumber
+    distance :: (I.Indexable v, RealFloat a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     distance left right
         | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must have equal dimensions for this operation"
         | otherwise = ((A.success . BN.squareRoot) . (Fo.foldr BN.plus BN.zero)) $ Fu.fmap square (_values subtValue)
         where subtValue = A.value $ minus left right
               square = (`BN.power` BN.two)
 
-    toContainer :: (I.Indexable v1, I.Indexable v2) => BigVector v1 -> v2 BN.BigNumber
+    toContainer :: (I.Indexable v1, I.Indexable v2) => BigVector v1 a -> v2 (BN.BigNumber a)
     toContainer (BigVector values) = I.switch values

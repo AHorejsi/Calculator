@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Redundant bracket" #-}
 {-# HLINT ignore "Move brackets to avoid $" #-}
@@ -87,88 +88,89 @@ module BigNumber (
     rounded,
     sigfig,
     isEven,
-    isOdd,
-    stringify
+    isOdd
 ) where
-    import Prelude hiding (gcd, lcm, negate)
+    import Prelude hiding (gcd, lcm, negate, print)
     import qualified GHC.Generics as G
     import qualified Text.Printf as TP
     import qualified Data.List as L
     import qualified Data.Maybe as M
     import qualified Data.Hashable as H
-    import qualified Underlying as U
-    import qualified CalcSettings as CS
     import qualified Actions as A
-    import qualified Equality as E
+    import qualified Stringify as P
 
     -- | Represents a scalar value
-    data BigNumber =
+    data BigNumber a =
         -- | Represents a scalar value that is a real number
         BigReal {
             -- | The real coefficient of this real number
-            _rreal :: U.Underlying
+            _rreal :: a
         } |
         -- | Represents a scalar value that is a complex number
         BigComplex {
             -- | The real coefficient of this complex number
-            _creal :: U.Underlying,
+            _creal :: a,
             -- | The imaginary coefficient of this complex number
-            _cimag0 :: U.Underlying
+            _cimag0 :: a
         } |
         -- | Represents a scalar value that is a quaternion
         BigQuaternion {
             -- | The real coefficient of this quaternion
-            _qreal :: U.Underlying,
+            _qreal :: a,
             -- | The first imaginary coefficient of this quaternion
-            _qimag0 :: U.Underlying,
+            _qimag0 :: a,
             -- | The second imaginary coefficient of this quaternion
-            _qimag1 :: U.Underlying,
+            _qimag1 :: a,
             -- | The third imaginary coefficient of this quaternion
-            _qimag2 :: U.Underlying
-        } deriving (G.Generic, Eq)
+            _qimag2 :: a
+        } deriving (G.Generic)
 
     -- | Represents an action that takes in a 'BigNumber' and outputs a 'BigNumber'
-    type UnaryNumberAction = A.UnaryAction BigNumber BigNumber
-    type ErrableUnaryNumberAction = A.ErrableUnaryAction BigNumber BigNumber
-    type BinaryNumberAction = A.BinaryAction BigNumber BigNumber BigNumber
-    type ErrableBinaryNumberAction = A.ErrableBinaryAction BigNumber BigNumber BigNumber
-    type TernaryNumberAction = A.TernaryAction BigNumber BigNumber BigNumber BigNumber
-    type ErrableTernaryNumberAction = A.ErrableTernaryAction BigNumber BigNumber BigNumber BigNumber
+    type UnaryNumberAction n = A.UnaryAction (BigNumber n) (BigNumber n)
+    -- | Represents an errable action that takes in a 'BigNumber' and outputs a 'BigNumber'
+    type ErrableUnaryNumberAction n = A.ErrableUnaryAction (BigNumber n) (BigNumber n)
+    -- | Represents an action that takes in 2 instances of 'BigNumber' and outputs a 'BigNumber'
+    type BinaryNumberAction n = A.BinaryAction (BigNumber n) (BigNumber n) (BigNumber n)
+    -- | Represents an errable action that takes in 2 instances of 'BigNumber' and outputs a 'BigNumber'
+    type ErrableBinaryNumberAction n = A.ErrableBinaryAction (BigNumber n) (BigNumber n) (BigNumber n)
+    -- | Represents an action that takes in 3 instances of 'BigNumber' and outputs a 'BigNumber'
+    type TernaryNumberAction n = A.TernaryAction (BigNumber n) (BigNumber n) (BigNumber n) (BigNumber n)
+    -- | Represents an action that takes in 3 instances of 'BigNumber' and outputs a 'BigNumber'
+    type ErrableTernaryNumberAction n = A.ErrableTernaryAction (BigNumber n) (BigNumber n) (BigNumber n) (BigNumber n)
 
-    instance E.Equality BigNumber where
-        eq left right = A.success $ left == right
+    instance (Eq a) => Eq (BigNumber a) where
+        (==) (BigReal leftReal) (BigReal rightReal) = leftReal == rightReal
+        (==) (BigComplex leftReal leftImag0) (BigComplex rightReal rightImag0) = leftReal == rightReal && leftImag0 == rightImag0
+        (==) (BigQuaternion leftReal leftImag0 leftImag1 leftImag2) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = leftReal == rightReal && leftImag0 == rightImag0 && leftImag1 == rightImag1 && leftImag2 == rightImag2
+        (==) _ _ = False
 
-    instance H.Hashable BigNumber where
-        hashWithSalt salt (BigReal realVal) = H.hashWithSalt salt (fromEnum realVal)
+    instance (H.Hashable a) => H.Hashable (BigNumber a) where
+        hashWithSalt salt (BigReal realVal) = H.hashWithSalt salt realVal
         hashWithSalt salt (BigComplex realVal imag0Val) = imag0Hash
-            where realHash = H.hashWithSalt salt (fromEnum realVal)
-                  imag0Hash = H.hashWithSalt realHash (fromEnum imag0Val)
+            where realHash = H.hashWithSalt salt realVal
+                  imag0Hash = H.hashWithSalt realHash imag0Val
         hashWithSalt salt (BigQuaternion realVal imag0Val imag1Val imag2Val) = imag2Hash
-            where realHash = H.hashWithSalt salt (fromEnum realVal)
-                  imag0Hash = H.hashWithSalt realHash (fromEnum imag0Val)
-                  imag1Hash = H.hashWithSalt imag0Hash (fromEnum imag1Val)
-                  imag2Hash = H.hashWithSalt imag1Hash (fromEnum imag2Val)
+            where realHash = H.hashWithSalt salt realVal
+                  imag0Hash = H.hashWithSalt realHash imag0Val
+                  imag1Hash = H.hashWithSalt imag0Hash imag1Val
+                  imag2Hash = H.hashWithSalt imag1Hash imag2Val
 
-    instance Show BigNumber where
-        show val@(BigReal realVal)
-            | isInteger val = TP.printf "Integer(%s)" (show int)
-            | otherwise = TP.printf "Real(%s)" (show realVal)
-            where int = asIntegral val :: Integer
+    instance (Show a) => Show (BigNumber a) where
+        show val@(BigReal realVal) = TP.printf "Real(%s)" (show realVal)
         show (BigComplex realVal imag0Val) = TP.printf "Complex(%s,%s)" (show realVal) (show imag0Val)
         show (BigQuaternion realVal imag0Val imag1Val imag2Val) = TP.printf "Quaternion(%s,%s,%s,%s)" (show realVal) (show imag0Val) (show imag1Val) (show imag2Val)
 
+    instance (Show a) => P.Stringifier (BigNumber a) where
+        stringify val = realStr ++ signedImagStr
+            where valList = _list val
+                  strList = fmap show valList
+                  imagAxes = ["i", "j", "k"]
+                  realStr = head strList
+                  imagStr = tail strList
+                  imagStrWithAxes = zipWith (++) imagStr imagAxes
+                  signedImagStr = concatMap _signedStr imagStrWithAxes
 
-    stringify :: BigNumber -> String
-    stringify val = realStr ++ signedImagStr
-        where valList = _list val
-              strList = fmap U.stringify valList
-              imagAxes = ["i", "j", "k"]
-              realStr = head strList
-              imagStr = tail strList
-              imagStrWithAxes = zipWith (++) imagStr imagAxes
-              signedImagStr = concatMap _signedStr imagStrWithAxes
-
-    _list :: BigNumber -> [U.Underlying]
+    _list :: BigNumber a -> [a]
     _list (BigReal realVal) = [realVal]
     _list (BigComplex realVal imag0Val) = [realVal, imag0Val]
     _list (BigQuaternion realVal imag0Val imag1Val imag2Val) = [realVal, imag0Val, imag1Val, imag2Val]
@@ -178,10 +180,10 @@ module BigNumber (
         | '-' == (head val) = val
         | otherwise = '+' : val
 
-    asNumber :: (Integral a) => a -> BigNumber
+    asNumber :: (Integral a, Num b) => a -> BigNumber b
     asNumber = makeReal . fromIntegral
 
-    asIntegral :: (Integral a) => BigNumber -> a
+    asIntegral :: (Integral a, RealFrac b) => BigNumber b -> a
     asIntegral (BigReal realVal)
         | intPart == realVal = floorVal
         | otherwise = error "Input is not in the integer set"
@@ -189,112 +191,112 @@ module BigNumber (
               intPart = fromIntegral floorVal
     asIntegral _ = error "Input is not in the real set"
 
-    makeReal :: U.Underlying -> BigNumber
+    makeReal :: a -> BigNumber a
     makeReal = BigReal
 
-    makeComplex :: U.Underlying -> U.Underlying -> BigNumber
-    makeComplex realVal 0.0 = makeReal realVal
+    makeComplex :: (Num a, Eq a) => a -> a -> BigNumber a
+    makeComplex realVal 0 = makeReal realVal
     makeComplex realVal imag0Val = BigComplex realVal imag0Val
 
-    makeQuaternion :: U.Underlying -> U.Underlying -> U.Underlying -> U.Underlying -> BigNumber
-    makeQuaternion realVal 0.0 0.0 0.0 = makeReal realVal
-    makeQuaternion realVal imag0Val 0.0 0.0 = makeComplex realVal imag0Val
+    makeQuaternion :: (Num a, Eq a) => a -> a -> a -> a -> BigNumber a
+    makeQuaternion realVal 0 0 0 = makeReal realVal
+    makeQuaternion realVal imag0Val 0 0 = makeComplex realVal imag0Val
     makeQuaternion realVal imag0Val imag1Val imag2Val = BigQuaternion realVal imag0Val imag1Val imag2Val
 
-    isExactReal :: BigNumber -> Bool
+    isExactReal :: BigNumber a -> Bool
     isExactReal BigReal{} = True
     isExactReal _ = False
 
-    isExactComplex :: BigNumber -> Bool
+    isExactComplex :: BigNumber a -> Bool
     isExactComplex BigComplex{} = True
     isExactComplex _ = False
 
-    isExactQuaternion :: BigNumber -> Bool
+    isExactQuaternion :: BigNumber a -> Bool
     isExactQuaternion BigQuaternion{} = True
     isExactQuaternion _ = False
 
-    isInteger :: BigNumber -> Bool
+    isInteger :: (RealFrac a) => BigNumber a -> Bool
     isInteger (BigReal realVal) = realVal == floorVal
         where floorVal = fromIntegral $ floor realVal
     isInteger _ = False
 
-    isReal :: BigNumber -> Bool
+    isReal :: (RealFrac a) => BigNumber a -> Bool
     isReal val = (isInteger val) || (isExactReal val)
 
-    isComplex :: BigNumber -> Bool
+    isComplex :: (RealFrac a) => BigNumber a -> Bool
     isComplex val = (isReal val) || (isExactComplex val)
 
-    isQuaternion :: BigNumber -> Bool
+    isQuaternion :: (RealFrac a) => BigNumber a -> Bool
     isQuaternion val = (isComplex val) || (isExactQuaternion val)
 
-    zero :: BigNumber
+    zero :: (Num a) => BigNumber a
     zero = BigReal 0
 
-    one :: BigNumber
+    one :: (Num a) => BigNumber a
     one = BigReal 1
 
-    two :: BigNumber
+    two :: (Num a) => BigNumber a
     two = BigReal 2
 
-    ten :: BigNumber
+    ten :: (Num a) => BigNumber a
     ten = BigReal 10
 
-    negOne :: BigNumber
+    negOne :: (Num a) => BigNumber a
     negOne = BigReal $ -1
 
-    half :: BigNumber
+    half :: (Fractional a) => BigNumber a
     half = BigReal 0.5
 
-    piValue :: BigNumber
+    piValue :: (Floating a) => BigNumber a
     piValue = BigReal pi
 
-    eValue :: BigNumber
-    eValue = BigReal $ exp 1.0
+    eValue :: (Floating a) => BigNumber a
+    eValue = BigReal $ exp 1
 
-    imagI :: BigNumber
-    imagI = BigComplex 0.0 1.0
+    imagI :: (Num a) => BigNumber a
+    imagI = BigComplex 0 1
 
-    imagJ :: BigNumber
-    imagJ = BigQuaternion 0.0 0.0 1.0 0.0
+    imagJ :: (Num a) => BigNumber a
+    imagJ = BigQuaternion 0 0 1 0
 
-    imagK :: BigNumber
-    imagK = BigQuaternion 0.0 0.0 0.0 1.0
+    imagK :: (Num a) => BigNumber a
+    imagK = BigQuaternion 0 0 0 1
 
-    _realPart :: BigNumber -> U.Underlying
+    _realPart :: BigNumber a -> a
     _realPart (BigReal realVal) = realVal
     _realPart (BigComplex realVal _) = realVal
     _realPart (BigQuaternion realVal _ _ _) = realVal
 
-    _imag0Part :: BigNumber -> U.Underlying
-    _imag0Part BigReal{} = 0.0
+    _imag0Part ::(Num a) => BigNumber a -> a
+    _imag0Part BigReal{} = 0
     _imag0Part (BigComplex _ imag0Val) = imag0Val
     _imag0Part (BigQuaternion _ imag0Val _ _) = imag0Val
 
-    realCoef :: BigNumber -> BigNumber
+    realCoef :: BigNumber a -> BigNumber a
     realCoef (BigReal realVal) = makeReal realVal
     realCoef (BigComplex realVal _) = makeReal realVal
     realCoef (BigQuaternion realVal _ _ _) = makeReal realVal
 
-    imag0Coef :: BigNumber -> BigNumber
+    imag0Coef :: (Num a) => BigNumber a -> BigNumber a
     imag0Coef BigReal{} = zero
     imag0Coef (BigComplex _ imag0Val) = makeReal imag0Val
     imag0Coef (BigQuaternion _ imag0Val _ _) = makeReal imag0Val
 
-    imag1Coef :: BigNumber -> BigNumber
+    imag1Coef :: (Num a) => BigNumber a -> BigNumber a
     imag1Coef BigReal{} = zero
     imag1Coef BigComplex{} = zero
     imag1Coef (BigQuaternion _ _ imag1Val _) = makeReal imag1Val
 
-    imag2Coef :: BigNumber -> BigNumber
+    imag2Coef :: (Num a) => BigNumber a -> BigNumber a
     imag2Coef BigReal{} = zero
     imag2Coef BigComplex{} = zero
     imag2Coef (BigQuaternion _ _ _ imag2Val) = makeReal imag2Val
 
-    _forceComplex :: BigNumber -> BigNumber
+    _forceComplex :: (Num a) => BigNumber a -> BigNumber a
     _forceComplex (BigReal realVal) = BigComplex realVal 0
     _forceComplex _ = error "Not a real number"
 
-    plus :: BigNumber -> BigNumber -> BigNumber
+    plus :: (Num a, Eq a) => BigNumber a -> BigNumber a -> BigNumber a
     plus (BigReal leftReal) (BigReal rightReal) = makeReal $ leftReal + rightReal
     plus (BigReal leftReal) (BigComplex rightReal rightImag0) = makeComplex (leftReal + rightReal) rightImag0
     plus (BigReal leftReal) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = makeQuaternion (leftReal + rightReal) rightImag0 rightImag1 rightImag2
@@ -303,7 +305,7 @@ module BigNumber (
     plus (BigQuaternion leftReal leftImag0 leftImag1 leftImag2) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = makeQuaternion (leftReal + rightReal) (leftImag0 + rightImag0) (leftImag1 + rightImag1) (leftImag2 + rightImag2)
     plus left right = plus right left
 
-    minus :: BigNumber -> BigNumber -> BigNumber
+    minus :: (Num a, Eq a) => BigNumber a -> BigNumber a -> BigNumber a
     minus (BigReal leftReal) (BigReal rightReal) = makeReal $ leftReal - rightReal
     minus (BigReal leftReal) (BigComplex rightReal rightImag0) = makeComplex (leftReal - rightReal) (-rightImag0)
     minus (BigReal leftReal) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = makeQuaternion (leftReal - rightReal) (-rightImag0) (-rightImag1) (-rightImag2)
@@ -314,7 +316,7 @@ module BigNumber (
     minus (BigQuaternion leftReal leftImag0 leftImag1 leftImag2) (BigComplex rightReal rightImag0) = makeQuaternion (leftReal - rightReal) (leftImag0 - rightImag0) leftImag1 leftImag2
     minus (BigQuaternion leftReal leftImag0 leftImag1 leftImag2) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = makeQuaternion (leftReal - rightReal) (leftImag0 - rightImag0) (leftImag1 - rightImag1) (leftImag2 - rightImag2)
 
-    multiply :: BigNumber -> BigNumber -> BigNumber
+    multiply :: (Num a, Eq a) => BigNumber a -> BigNumber a -> BigNumber a
     multiply (BigReal leftReal) (BigReal rightReal) = makeReal $ leftReal * rightReal
     multiply (BigReal leftReal) (BigComplex rightReal rightImag0) = makeComplex (leftReal * rightReal) (leftReal * rightImag0)
     multiply (BigReal leftReal) (BigQuaternion rightReal rightImag0 rightImag1 rightImag2) = makeQuaternion (leftReal * rightReal) (leftReal * rightImag0) (leftReal * rightImag1) (leftReal * rightImag2)
@@ -338,10 +340,11 @@ module BigNumber (
               imag2Result = leftReal * rightImag2 - leftImag0 * rightImag1 + leftImag1 * rightImag0 + leftImag2 * rightReal
     multiply left right = multiply right left
 
-    negate :: BigNumber -> BigNumber
+    negate :: (Num a, Eq a) => BigNumber a -> BigNumber a
     negate = multiply negOne
 
-    divide :: BigNumber -> BigNumber -> A.Computation BigNumber
+    divide :: (Fractional a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
+    divide _ (BigReal 0) = A.failure A.DivideByZero "Cannot divide by zero"
     divide (BigReal leftReal) (BigReal rightReal) = (A.success . makeReal) $ leftReal / rightReal
     divide left right@BigComplex{} = divide numerator denominator
         where rightConj = conjugate right
@@ -368,24 +371,24 @@ module BigNumber (
               imag1Result = (leftReal * rightImag1 + leftImag0 * rightImag2 - leftImag1 * rightReal - leftImag2 * rightImag0) / denominator
               imag2Result = (leftReal * rightImag2 - leftImag0 * rightImag1 + leftImag1 * rightImag0 - leftImag2 * rightReal) / denominator
 
-    inverse :: BigNumber -> A.Computation BigNumber
-    inverse (BigReal 0.0) = A.failure A.DivideByZero "Zero does not have an inverse"
+    inverse :: (Fractional a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
+    inverse (BigReal 0) = A.failure A.DivideByZero "Zero does not have an inverse"
     inverse (BigReal realVal) = A.success $ makeReal $ 1 / realVal
     inverse (BigComplex realVal imag0Val) = A.success $ makeComplex (realVal / denominator) (-imag0Val / denominator)
-        where denominator = (realVal ** 2) + (imag0Val ** 2)
+        where denominator = (realVal ^^ 2) + (imag0Val ^^ 2)
     inverse quat@(BigQuaternion realVal imag0Val imag1Val imag2Val) = divide conjVal denominator
         where conjVal = conjugate quat
               denominator = makeReal $ realVal * realVal + imag0Val * imag0Val + imag1Val * imag1Val + imag2Val * imag2Val
 
-    absolute :: BigNumber -> BigNumber
+    absolute :: (Floating a) => BigNumber a -> BigNumber a
     absolute (BigReal realVal) = makeReal $ abs realVal
     absolute (BigComplex realVal imag0Val) = (makeReal . sqrt) $ realVal * realVal + imag0Val * imag0Val
     absolute (BigQuaternion realVal imag0Val imag1Val imag2Val) = (makeReal . sqrt) $ realVal * realVal + imag0Val * imag0Val + imag1Val * imag1Val + imag2Val * imag2Val
 
-    normalize :: BigNumber -> A.Computation BigNumber
+    normalize :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     normalize val = divide val (absolute val)
 
-    _binaryIntAction :: (Integral a) => A.BinaryAction a a a -> BigNumber -> BigNumber -> A.Computation BigNumber
+    _binaryIntAction :: (Integral a, RealFrac b) => A.BinaryAction a a a -> BigNumber b -> BigNumber b -> A.Computation (BigNumber b)
     _binaryIntAction action left@BigReal{} right@BigReal{}
         | not $ (isInteger left) && (isInteger right) = A.failure A.NotInteger "Given action is only possible on integers"
         | otherwise = (A.success . asNumber) $ action leftInt rightInt
@@ -393,29 +396,29 @@ module BigNumber (
               rightInt = asIntegral right
     _binaryIntAction _ _ _ = A.failure A.NotInteger "Given action is only possible on integers"
     
-    modulo :: BigNumber -> BigNumber -> A.Computation BigNumber
-    modulo _ (BigReal 0.0) = A.failure A.DivideByZero "Modulo by 0 is uncomputable"
+    modulo :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
+    modulo _ (BigReal 0) = A.failure A.DivideByZero "Modulo by 0 is uncomputable"
     modulo left right
         | A.isFailure result = A.failure A.NotInteger "Operator mod is only possible on integers"
         | otherwise = result
         where result = _binaryIntAction mod left right
 
-    remainder :: BigNumber -> BigNumber -> A.Computation BigNumber
-    remainder _ (BigReal 0.0) = A.failure A.DivideByZero "Division by 0 is uncomputable, therefore there is no remainder for any division by 0"
+    remainder :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
+    remainder _ (BigReal 0) = A.failure A.DivideByZero "Division by 0 is uncomputable, therefore there is no remainder for any division by 0"
     remainder left right
         | A.isFailure result = A.failure A.NotInteger "Function rem is only possible on integers"
         | otherwise = result
         where result = _binaryIntAction rem left right
 
-    integerDivide :: BigNumber -> BigNumber -> A.Computation BigNumber
-    integerDivide _ (BigReal 0.0) = A.failure A.DivideByZero "Integer division by zero is uncomputable"
+    integerDivide :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
+    integerDivide _ (BigReal 0) = A.failure A.DivideByZero "Integer division by zero is uncomputable"
     integerDivide left right
         | A.isFailure result = A.failure A.NotInteger "Integer division is only possible on integers"
         | otherwise = result
         where result = _binaryIntAction div left right
 
-    gcd :: BigNumber -> BigNumber -> A.Computation BigNumber
-    gcd (BigReal 0.0) (BigReal 0.0) = A.failure A.InvalidInput "(0, 0) has no greatest common divisor because all integers are valid divisors"
+    gcd :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
+    gcd (BigReal 0) (BigReal 0) = A.failure A.InvalidInput "(0, 0) has no greatest common divisor because all integers are valid divisors"
     gcd first@BigReal{} second@BigReal{}
         | not $ (isInteger first) && (isInteger second) = A.failure A.NotInteger "Function gcd only works on integers"
         | otherwise = (A.success . asNumber) $ _gcdHelper firstInt secondInt
@@ -423,18 +426,18 @@ module BigNumber (
               secondInt = asIntegral second
     gcd _ _ = A.failure A.NotInteger "Function gcd only applies to integers"
 
-    _gcdHelper :: (Integral a) => a -> a -> a
+    _gcdHelper :: (Integral a, Eq a) => a -> a -> a
     _gcdHelper first second
         | 0 == second = first
         | 0 == first = second
         | otherwise = _gcdHelper second (mod first second)
 
-    lcm :: BigNumber -> BigNumber -> A.Computation BigNumber
-    lcm left right = A.resolveErrableBinary prod gcdVal divide
+    lcm :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
+    lcm left right = A.resolveErrableBinary prod gcdVal integerDivide
         where prod = A.success $ multiply left right
               gcdVal = gcd left right
 
-    factorial :: BigNumber -> A.Computation BigNumber
+    factorial :: (RealFrac a) => BigNumber a -> A.Computation (BigNumber a)
     factorial real@BigReal{}
         | not $ isInteger real = A.failure A.NotInteger "Only nonnegative integers have factorials"
         | int < 0 = A.failure A.NegativeInput "Only nonnegative integers have factorials"
@@ -446,28 +449,28 @@ module BigNumber (
     _factorialHelper 0 = 1
     _factorialHelper intVal = intVal * (_factorialHelper $ intVal - 1)
 
-    choose :: BigNumber -> BigNumber -> A.Computation BigNumber
+    choose :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     choose choices picks = A.resolveErrableBinary a d integerDivide
         where a = factorial choices
               b = factorial picks
               c = factorial $ minus choices picks
               d = A.resolveBinary b c multiply
 
-    perm :: BigNumber -> BigNumber -> A.Computation BigNumber
+    perm :: (RealFrac a, Eq a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     perm choices picks = A.resolveErrableBinary a b integerDivide
         where a = factorial choices
               b = factorial $ minus choices picks
 
-    power :: BigNumber -> BigNumber -> BigNumber
-    power (BigReal 0.0) (BigReal 0.0) = one
-    power (BigReal 0.0) _ = zero
+    power :: (RealFloat a) => BigNumber a -> BigNumber a -> BigNumber a
+    power (BigReal 0) (BigReal 0) = one
+    power (BigReal 0) _ = zero
     power left right = exponential $ multiply (A.value $ naturalLogarithm left) right
 
-    squareRoot :: BigNumber -> BigNumber
+    squareRoot :: (RealFloat a) => BigNumber a -> BigNumber a
     squareRoot = (`power` half)
 
-    naturalLogarithm :: BigNumber -> A.Computation BigNumber
-    naturalLogarithm (BigReal 0.0) = A.failure A.LogOfZero "Logarithm of zero is uncomputable"
+    naturalLogarithm :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
+    naturalLogarithm (BigReal 0) = A.failure A.LogOfZero "Logarithm of zero is uncomputable"
     naturalLogarithm (BigReal realVal)
         | realVal < 0 = A.success $ makeComplex (log $ -realVal) pi
         | otherwise = (A.success . makeReal) $ log realVal
@@ -482,19 +485,19 @@ module BigNumber (
               e = A.success $ multiply (A.value $ normalize a) d
               f = naturalLogarithm b
 
-    logarithm :: BigNumber -> BigNumber -> A.Computation BigNumber
+    logarithm :: (RealFloat a, Ord a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     logarithm base val = A.resolveErrableBinary valArg baseArg divide
         where baseArg = naturalLogarithm base
               valArg = naturalLogarithm val
 
-    logarithm10 :: BigNumber -> A.Computation BigNumber
+    logarithm10 :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     logarithm10 = logarithm ten
 
-    logarithm2 :: BigNumber -> A.Computation BigNumber
+    logarithm2 :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     logarithm2 = logarithm two
     
-    exponential :: BigNumber -> BigNumber
-    exponential (BigReal 0.0) = one
+    exponential :: (Floating a, Eq a) => BigNumber a -> BigNumber a
+    exponential (BigReal 0) = one
     exponential (BigReal realVal) = makeReal $ exp realVal
     exponential (BigComplex realVal imag0Val) = multiply (exponential $ makeReal realVal) (makeComplex (cos imag0Val) (sin imag0Val))
     exponential quat@BigQuaternion{} = multiply e d
@@ -504,12 +507,12 @@ module BigNumber (
               d = plus (A.value $ cosine b) c
               e = exponential $ realCoef quat
 
-    conjugate :: BigNumber -> BigNumber
+    conjugate :: (Num a, Eq a) => BigNumber a -> BigNumber a
     conjugate val@BigReal{} = val
     conjugate (BigComplex realVal imag0Val) = makeComplex realVal (-imag0Val)
     conjugate (BigQuaternion realVal imag0Val imag1Val imag2Val) = makeQuaternion realVal (-imag0Val) (-imag1Val) (-imag2Val)
 
-    arg :: BigNumber -> A.Computation BigNumber
+    arg :: (RealFloat a) => BigNumber a -> A.Computation (BigNumber a)
     arg BigReal{} = A.success zero
     arg (BigComplex 0 imag0Val)
         | imag0Val < 0 = A.success $ multiply (negate piValue) half
@@ -517,42 +520,42 @@ module BigNumber (
     arg (BigComplex realVal imag0Val) = (A.success . makeReal) $ atan2 imag0Val realVal
     arg _ = A.failure A.NotComplex "Complex argument can only be applied to scalars that are in the set of all complex numbers"
 
-    vectorPart :: BigNumber -> BigNumber
+    vectorPart :: (Num a, Eq a) => BigNumber a -> BigNumber a
     vectorPart BigReal{} = zero
     vectorPart (BigComplex _ imag0Val) = makeComplex 0 imag0Val
     vectorPart (BigQuaternion _ imag0Val imag1Val imag2Val) = makeQuaternion 0 imag0Val imag1Val imag2Val
 
-    sine :: BigNumber -> A.Computation BigNumber
+    sine :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     sine (BigReal realVal) = (A.success . makeReal) $ sin realVal
     sine (BigComplex realVal imag0Val) = A.success $ makeComplex ((sin realVal) * (cosh imag0Val)) ((cos realVal) * (sinh imag0Val))
     sine _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    cosine :: BigNumber -> A.Computation BigNumber
+    cosine :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     cosine (BigReal realVal) = (A.success . makeReal) $ cos realVal
     cosine (BigComplex realVal imag0Val) = A.success $ makeComplex ((cos realVal) * (cosh imag0Val)) (-(sin realVal) * (sinh imag0Val))
     cosine _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    tangent :: BigNumber -> A.Computation BigNumber
+    tangent :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     tangent val = A.resolveErrableBinary sinValue cosValue divide
         where sinValue = sine val
               cosValue = cosine val
 
-    sineHyperbolic :: BigNumber -> A.Computation BigNumber
+    sineHyperbolic :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     sineHyperbolic (BigReal realVal) = (A.success . makeReal) $ sinh realVal
     sineHyperbolic (BigComplex realVal imag0Val) = A.success $ makeComplex ((sinh realVal) * (cos imag0Val)) ((cosh realVal) * (sin imag0Val))
     sineHyperbolic _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    cosineHyperbolic :: BigNumber -> A.Computation BigNumber
+    cosineHyperbolic :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     cosineHyperbolic (BigReal realVal) = (A.success . makeReal) $ cosh realVal
     cosineHyperbolic (BigComplex realVal imag0Val) = A.success $ makeComplex ((cosh realVal) * (cos imag0Val)) ((sinh realVal) * (sin imag0Val))
     cosineHyperbolic _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    tangentHyperbolic :: BigNumber -> A.Computation BigNumber
+    tangentHyperbolic :: (Floating a, Eq a) => BigNumber a -> A.Computation (BigNumber a)
     tangentHyperbolic val = A.resolveErrableBinary sinhValue coshValue divide
         where sinhValue = sineHyperbolic val
               coshValue = cosineHyperbolic val
 
-    arcsine :: BigNumber -> A.Computation BigNumber
+    arcsine :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     arcsine val@(BigReal realVal)
         | ((-1) <= realVal) && (realVal <= 1) = (A.success . makeReal) $ asin realVal
         | otherwise = arcsine $ _forceComplex val
@@ -562,7 +565,7 @@ module BigNumber (
               c = multiply (negate imagI) (A.value $ naturalLogarithm b)
     arcsine _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    arccosine :: BigNumber -> A.Computation BigNumber
+    arccosine :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     arccosine val@(BigReal realVal)
         | ((-1) <= realVal) && (realVal <= 1) = (A.success . makeReal) $ acos realVal
         | otherwise = arccosine $ _forceComplex val
@@ -573,7 +576,7 @@ module BigNumber (
               rightArg = naturalLogarithm b
     arccosine _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    arctangent :: BigNumber -> A.Computation BigNumber
+    arctangent :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     arctangent val@(BigReal realVal)
         | ((-1) <= realVal) && (realVal <= 1) = (A.success . makeReal) $ atan realVal
         | otherwise = arctangent $ _forceComplex val
@@ -585,11 +588,11 @@ module BigNumber (
               e = multiply imagI half
     arctangent _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    arctangent2 :: BigNumber -> BigNumber -> A.Computation BigNumber
+    arctangent2 :: (RealFloat a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     arctangent2 (BigReal leftReal) (BigReal rightReal) = (A.success . makeReal) $ atan2 leftReal rightReal
     arctangent2 _ _ = A.failure A.NotComplex "Function arctan2 can only be applied to real numbers"
 
-    arcsineHyperbolic :: BigNumber -> A.Computation BigNumber
+    arcsineHyperbolic :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     arcsineHyperbolic val@(BigReal realVal)
         | ((-1) <= realVal) && (realVal <= 1) = (A.success . makeReal) $ asinh realVal
         | otherwise = arcsineHyperbolic $ _forceComplex val
@@ -598,7 +601,7 @@ module BigNumber (
               rightArg = A.success imagI
     arcsineHyperbolic _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    arccosineHyperbolic :: BigNumber -> A.Computation BigNumber
+    arccosineHyperbolic :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     arccosineHyperbolic val@(BigReal realVal)
         | ((-1) <= realVal) && (realVal <= 1) = (A.success . makeReal) $ acosh realVal
         | otherwise = arccosineHyperbolic $ _forceComplex val
@@ -607,7 +610,7 @@ module BigNumber (
               leftArg = A.success imagI
     arccosineHyperbolic _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    arctangentHyperbolic :: BigNumber -> A.Computation BigNumber
+    arctangentHyperbolic :: (RealFloat a, Ord a) => BigNumber a -> A.Computation (BigNumber a)
     arctangentHyperbolic val@(BigReal realVal)
         | ((-1) <= realVal) && (realVal <= 1) = (A.success . makeReal) $ atanh realVal
         | otherwise = arctangentHyperbolic $ _forceComplex val
@@ -616,43 +619,43 @@ module BigNumber (
               rightArg = A.success imagI
     arctangentHyperbolic _ = A.failure A.NotComplex "Trig Functions can only be applied to complex numbers"
 
-    minVal :: BigNumber -> BigNumber -> A.Computation BigNumber
+    minVal :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     minVal (BigReal leftReal) (BigReal rightReal) = (A.success . makeReal) $ min leftReal rightReal
     minVal _ _ = A.failure A.NotComparable "Real numbers are the only scalars that have a total ordering and therefore have a minimum value"
 
-    maxVal :: BigNumber -> BigNumber -> A.Computation BigNumber
+    maxVal :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     maxVal (BigReal leftReal) (BigReal rightReal) = (A.success . makeReal) $ max leftReal rightReal
     maxVal _ _ = A.failure A.NotComparable "Real numbers are the only scalars that have a total ordering and therefore have a maximum value"
 
-    less :: BigNumber -> BigNumber -> A.Computation Bool
+    less :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation Bool
     less left right = A.resolveUnary result (LT==)
             where result = _compare left right
 
-    greater :: BigNumber -> BigNumber -> A.Computation Bool
+    greater :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation Bool
     greater = flip less
 
-    lessEqual :: BigNumber -> BigNumber -> A.Computation Bool
+    lessEqual :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation Bool
     lessEqual left right = A.resolveUnary (greater left right) not
 
-    greaterEqual :: BigNumber -> BigNumber -> A.Computation Bool
+    greaterEqual :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation Bool
     greaterEqual left right = A.resolveUnary (less left right) not
 
-    _compare :: BigNumber -> BigNumber -> A.Computation Ordering
+    _compare :: (Ord a) => BigNumber a -> BigNumber a -> A.Computation Ordering
     _compare (BigReal leftReal) (BigReal rightReal) = A.success $ compare leftReal rightReal
     _compare _ _ = A.failure A.NotComparable "Real numbers are the only scalars that have a total ordering"
 
-    roundDown :: BigNumber -> A.Computation BigNumber
+    roundDown :: (RealFrac a) => BigNumber a -> A.Computation (BigNumber a)
     roundDown (BigReal realVal) = (A.success . asNumber) $ floor realVal
     roundDown _ = A.failure A.NotReal "Only real numbers can be rounded up/down/off to the nearest integer"
 
-    roundUp :: BigNumber -> A.Computation BigNumber
+    roundUp :: (RealFrac a) => BigNumber a -> A.Computation (BigNumber a)
     roundUp (BigReal realVal) = (A.success . asNumber) $ ceiling realVal
     roundUp _ = A.failure A.NotReal "Only real numbers can be rounded up/down/off to the nearest integer"
 
-    roundOff :: BigNumber -> A.Computation BigNumber
+    roundOff :: (RealFrac a) => BigNumber a -> A.Computation (BigNumber a)
     roundOff = roundDown . (plus half)
 
-    rounded :: BigNumber -> BigNumber -> A.Computation BigNumber
+    rounded :: (RealFrac a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     rounded val places@BigReal{}
         | not $ isInteger places = A.failure A.NotInteger "Number of decimal places must be an integer"
         | intPlaces < 0 = A.failure A.NegativeInput "Cannot round to a negative number of decimal places"
@@ -663,7 +666,7 @@ module BigNumber (
               roundedList = fmap (_roundedHelper intPlaces) list
     rounded _ _ = A.failure A.NotInteger "The number of decimal places to round to must be a nonnegative integer"
 
-    sigfig :: BigNumber -> BigNumber -> A.Computation BigNumber
+    sigfig :: (RealFrac a, Show a) => BigNumber a -> BigNumber a -> A.Computation (BigNumber a)
     sigfig val places@BigReal{}
         | not $ isInteger places = A.failure A.NotInteger "Number of significant figures must be an integer"
         | otherwise = A.success $ _fromList sigfigList
@@ -672,31 +675,31 @@ module BigNumber (
               sigfigList = fmap (_sigfigHelper intPlaces) list
     sigfig _ _ = A.failure A.NotInteger "The number of significant figures to round to must be a nonnegative integer"
 
-    _fromList :: [U.Underlying] -> BigNumber
+    _fromList :: (Num a, Eq a) => [a] -> BigNumber a
     _fromList [realVal] = makeReal realVal
     _fromList [realVal, imag0Val] = makeComplex realVal imag0Val
     _fromList [realVal, imag0Val, imag1Val, imag2Val] = makeQuaternion realVal imag0Val imag1Val imag2Val
     _fromList _ = error "Invalid list length"
 
-    _roundedHelper :: (Integral a) => a -> U.Underlying -> U.Underlying
+    _roundedHelper :: (Integral a, RealFrac b) => a -> b -> b
     _roundedHelper places val = numerator / powerOfTen
         where powerOfTen = fromIntegral $ 10 ^ places
               numerator = (fromIntegral . round) $ val * powerOfTen
 
-    _sigfigHelper :: (Integral a) => a -> U.Underlying -> U.Underlying
+    _sigfigHelper :: (Integral a, RealFrac b, Show b) => a -> b -> b
     _sigfigHelper places val = _roundedHelper decimalPlaces val
         where strVal = show $ abs val
               indexOfDecimal = (fromIntegral . M.fromJust) $ L.elemIndex '.' strVal
               decimalPlaces = places - indexOfDecimal
 
-    isEven :: BigNumber -> Bool
+    isEven :: (RealFrac a) => BigNumber a -> Bool
     isEven val@BigReal{}
         | A.isFailure result = False
         | otherwise = zero == (A.value result)
         where result = modulo val two
     isEven _ = False
 
-    isOdd :: BigNumber -> Bool
+    isOdd :: (RealFrac a) => BigNumber a -> Bool
     isOdd val@BigReal{}
         | A.isFailure result = False
         | otherwise = one == (A.value result)

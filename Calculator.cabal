@@ -35,10 +35,10 @@ library
       BigTuple
       BigVector
       CalcSettings
-      Equality
       Indexable
       MathEntity
       Parse
+      Stringify
       Underlying
   other-modules:
       Paths_Calculator

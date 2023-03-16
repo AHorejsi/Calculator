@@ -19,4 +19,4 @@ val4 = BN.makeQuaternion (57893.008943534123645798) (-563.05340534798564213) (-8
 
 main :: IO ()
 main = putStrLn $ "\n" ++ (show a) ++ "\n" -- Computes some huge number that takes a long time to complete
-    where a = BN.exponential val4
+    where a = BN.exponential val3
