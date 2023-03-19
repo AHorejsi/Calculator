@@ -71,13 +71,13 @@ module BigMatrix (
     rowsInt :: BigMatrix v a -> Int
     rowsInt (BigMatrix _ rows _) = rows
 
-    rows :: BigMatrix v -> BN.BigNumber a
+    rows :: (Num a) => BigMatrix v a -> BN.BigNumber a
     rows = BN.asNumber . rowsInt
 
     columnsInt :: BigMatrix v a -> Int
     columnsInt (BigMatrix _ _ cols) = cols
 
-    columns :: BigMatrix v a -> BN.BigNumber a
+    columns :: (Num a) => BigMatrix v a -> BN.BigNumber a
     columns = BN.asNumber . columnsInt
 
     equalSize :: BigMatrix v a -> BigMatrix v a -> Bool
@@ -89,10 +89,10 @@ module BigMatrix (
     square :: BigMatrix v a -> Bool
     square (BigMatrix _ rows cols) = rows == cols
 
-    null :: (Fo.Foldable v) => BigMatrix v a -> Bool
+    null :: (Fo.Foldable v, Num a, Eq a) => BigMatrix v a -> Bool
     null (BigMatrix values _ _) = Fo.all (==BN.zero) values
 
-    get :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BN.BigNumber a)
+    get :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BN.BigNumber a)
     get matrix rowIndex colIndex
         | not $ (BN.isInteger rowIndex) && (BN.isInteger colIndex) = A.failure A.NotInteger "Indices must be nonnegative integers"
         | otherwise = getInt matrix intRowIndex intColIndex
@@ -105,31 +105,31 @@ module BigMatrix (
         | otherwise = A.success $ I.at values actualIndex
         where actualIndex = rowIndex * cols + colIndex
 
-    _binaryElementwise :: (I.Indexable v) => BN.BinaryNumberAction a -> BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
+    _binaryElementwise :: (I.Indexable v, Num a, Eq a) => BN.BinaryNumberAction a -> BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
     _binaryElementwise action left@(BigMatrix leftValues leftRows leftCols) right@(BigMatrix rightValues _ _)
         | not $ equalSize left right = A.failure A.UnequalDimensions "Matrices must be of the same dimensions for this operation"
         | otherwise = A.success $ BigMatrix (I.pairOn action leftValues rightValues) leftRows leftCols
 
-    plus :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
+    plus :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
     plus = _binaryElementwise BN.plus
 
-    minus :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
+    minus :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
     minus = _binaryElementwise BN.minus
 
-    scale :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
+    scale :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
     scale = _binaryElementwise BN.multiply
 
-    _unaryElementwise :: (Fu.Functor v) => BN.UnaryNumberAction a -> BigMatrix v a -> BigMatrix v a
+    _unaryElementwise :: (Fu.Functor v, Num a, Eq a) => BN.UnaryNumberAction a -> BigMatrix v a -> BigMatrix v a
     _unaryElementwise action (BigMatrix values rows cols) = BigMatrix resultValues rows cols
         where resultValues = Fu.fmap action values
 
-    scalarMultiplyLeft :: (Fu.Functor v) => BN.BigNumber a -> BigMatrix v a -> BigMatrix v a
+    scalarMultiplyLeft :: (Fu.Functor v, Num a, Eq a) => BN.BigNumber a -> BigMatrix v a -> BigMatrix v a
     scalarMultiplyLeft left = _unaryElementwise (BN.multiply left)
 
-    scalarMultiplyRight :: (Fu.Functor v) => BigMatrix v a -> BN.BigNumber a -> BigMatrix v a
+    scalarMultiplyRight :: (Fu.Functor v, Num a, Eq a) => BigMatrix v a -> BN.BigNumber a -> BigMatrix v a
     scalarMultiplyRight left right = _unaryElementwise (`BN.multiply` right) left
 
-    negate :: (Fu.Functor v) => BigMatrix v a -> BigMatrix v a
+    negate :: (Fu.Functor v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a
     negate = scalarMultiplyLeft BN.negOne
 
     _rowTraversal :: Int -> Int -> Int -> (Int, Int)
@@ -138,7 +138,7 @@ module BigMatrix (
               nextRowIndex = if colIndex == lastColIndex then rowIndex + 1 else rowIndex
               nextColIndex = if colIndex == lastColIndex then 0 else colIndex + 1
 
-    _matrixMultiplyHelper2 :: (I.Indexable v) => Int -> Int -> Int -> Int -> BigMatrix v a -> BigMatrix v a -> BN.BigNumber a
+    _matrixMultiplyHelper2 :: (I.Indexable v, Num a, Eq a) => Int -> Int -> Int -> Int -> BigMatrix v a -> BigMatrix v a -> BN.BigNumber a
     _matrixMultiplyHelper2 index endIndex rowIndex colIndex left right
         | index == endIndex = BN.zero
         | otherwise = BN.plus elem next
@@ -147,7 +147,7 @@ module BigMatrix (
               elem = BN.multiply leftElem rightElem
               next = _matrixMultiplyHelper2 (index + 1) endIndex rowIndex colIndex left right
 
-    _matrixMultiplyHelper1 :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a -> Int -> Int -> Int -> Int -> v (BN.BigNumber a)
+    _matrixMultiplyHelper1 :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a -> Int -> Int -> Int -> Int -> v (BN.BigNumber a)
     _matrixMultiplyHelper1 left right rowIndex colIndex rows cols
         | nextRowIndex == rows = I.only elem
         | otherwise = I.prepend elem next
@@ -155,13 +155,13 @@ module BigMatrix (
               next = _matrixMultiplyHelper1 left right nextRowIndex nextColIndex rows cols
               (nextRowIndex, nextColIndex) = _rowTraversal rowIndex colIndex cols
 
-    matrixMultiply :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
+    matrixMultiply :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
     matrixMultiply left@(BigMatrix _ leftRows leftCols) right@(BigMatrix _ rightRows rightCols)
         | not $ isMatrixMultipliable left right = A.failure A.InvalidInput "Left matrix must have the same number of columns as the right matrix has rows"
         | otherwise = A.success $ BigMatrix resultValues leftRows rightCols
         where resultValues = _matrixMultiplyHelper1 left right 0 0 leftRows rightCols
 
-    _determinantHelper2 :: (I.Indexable v) => BigMatrix v a -> Int -> BN.BigNumber a
+    _determinantHelper2 :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> Int -> BN.BigNumber a
     _determinantHelper2 mat@(BigMatrix _ _ cols) colIndex
         | colIndex == cols = BN.zero
         | otherwise = BN.plus elem next
@@ -171,7 +171,7 @@ module BigMatrix (
               elem = Fo.foldr BN.multiply BN.one [c, b, a]
               next = _determinantHelper2 mat (colIndex + 1)
 
-    _determinantHelper1 :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a
+    _determinantHelper1 :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> BN.BigNumber a
     _determinantHelper1 mat@(BigMatrix _ rows _)
         | 2 == rows = BN.minus (BN.multiply a d) (BN.multiply b c)
         | otherwise = _determinantHelper2 mat 0
@@ -180,7 +180,7 @@ module BigMatrix (
               c = A.value $ getInt mat 1 0
               d = A.value $ getInt mat 1 1
 
-    determinant :: (I.Indexable v) => BigMatrix v a -> A.Computation (BN.BigNumber a)
+    determinant :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> A.Computation (BN.BigNumber a)
     determinant mat@(BigMatrix _ rows cols)
         | not $ square mat = A.failure A.NonsquareMatrix "Matrix must be square to have a determinant"
         | 1 == rows = getInt mat 0 0
@@ -203,14 +203,14 @@ module BigMatrix (
         | otherwise = A.success $ BigMatrix resultValues (rows - 1) (cols - 1)
         where resultValues = _submatrixHelper2 values rows cols avoidRowIndex avoidColIndex 0
 
-    submatrix :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    submatrix :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     submatrix matrix avoidRowIndex avoidColIndex
         | not $ (BN.isInteger avoidRowIndex) && (BN.isInteger avoidColIndex) = A.failure A.NotInteger "Indices must be integers"
         | otherwise = _submatrixHelper1 matrix intAvoidRowIndex intAvoidColIndex
         where intAvoidRowIndex = BN.asIntegral avoidRowIndex
               intAvoidColIndex = BN.asIntegral avoidColIndex
 
-    _minorHelper :: (I.Indexable v) => BigMatrix v a -> Int -> Int -> v (BN.BigNumber a)
+    _minorHelper :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> Int -> Int -> v (BN.BigNumber a)
     _minorHelper mat@(BigMatrix _ rows cols) rowIndex colIndex
         | rowIndex == rows = I.empty
         | otherwise = I.prepend elem next
@@ -219,11 +219,11 @@ module BigMatrix (
               (nextRowIndex, nextColIndex) = _rowTraversal rowIndex colIndex cols
               next = _minorHelper mat nextRowIndex nextColIndex
 
-    _minor :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a
+    _minor :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> BigMatrix v a
     _minor mat@(BigMatrix _ rows cols) = BigMatrix resultValues rows cols
         where resultValues = _minorHelper mat 0 0
 
-    _cofactorsHelper :: (I.Indexable v) => v (BN.BigNumber a) -> Bool -> v (BN.BigNumber a)
+    _cofactorsHelper :: (I.Indexable v, Num a, Eq a) => v (BN.BigNumber a) -> Bool -> v (BN.BigNumber a)
     _cofactorsHelper values sign
         | Fo.null values = I.empty
         | otherwise = I.prepend elem next
@@ -232,7 +232,7 @@ module BigMatrix (
               elem = if sign then BN.negate val else val
               next = _cofactorsHelper rest (not sign)
 
-    _cofactors :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a
+    _cofactors :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a
     _cofactors mat@(BigMatrix values rows cols) = BigMatrix resultValues rows cols
         where resultValues = _cofactorsHelper values True
 
@@ -250,7 +250,7 @@ module BigMatrix (
     transpose mat@(BigMatrix _ rows cols) = BigMatrix resultValues cols rows
         where resultValues = _transposeHelper mat 0 0
 
-    matrixInverse :: (I.Indexable v) => BigMatrix v a -> A.Computation (BigMatrix v a)
+    matrixInverse :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> A.Computation (BigMatrix v a)
     matrixInverse mat@(BigMatrix _ rows cols)
         | not $ square mat = A.failure A.NonsquareMatrix "A matrix must be square to have an inverse"
         | BN.zero == detValue = A.failure A.DeterminantOfZero "A matrix must not have a determinant of zero to have an inverse"
@@ -261,12 +261,12 @@ module BigMatrix (
         where detValue = A.value $ determinant mat
               invOfDetValue = A.value $ BN.inverse detValue
 
-    matrixDivide :: (I.Indexable v) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
+    matrixDivide :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> BigMatrix v a -> A.Computation (BigMatrix v a)
     matrixDivide left right = A.resolveErrableBinary leftVal rightInverse matrixMultiply
         where rightInverse = matrixInverse right
               leftVal = A.success left
 
-    _addRowHelper :: (I.Indexable v) => BigMatrix v a -> Int -> Int -> v (BN.BigNumber a)
+    _addRowHelper :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> Int -> Int -> v (BN.BigNumber a)
     _addRowHelper (BigMatrix values rows cols) fromRowIndex toRowIndex = I.link [startElems, newElems, endElems]
         where actualFromIndex = rows * fromRowIndex
               actualToIndex = rows * toRowIndex
@@ -276,7 +276,7 @@ module BigMatrix (
               newElems = I.pairOn BN.plus fromRow toRow
               endElems = I.skip (actualToIndex + cols) values
 
-    addRow :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    addRow :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     addRow mat@(BigMatrix _ rows cols) fromRow toRow
         | not $ (BN.isInteger fromRow) && (BN.isInteger toRow) = A.failure A.NotInteger "Row Indices must be nonnegative integers"
         | (fromRowInt < 0) || (fromRowInt >= rows) || (toRowInt < 0) || (toRowInt >= rows) = A.failure A.IndexOutOfBounds "Row Indices outside the bounds of the matrix"
@@ -286,7 +286,7 @@ module BigMatrix (
               toRowInt = BN.asIntegral toRow
               resultValues = _addRowHelper mat fromRowInt toRowInt
 
-    _multRowHelper :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> Int -> v (BN.BigNumber a)
+    _multRowHelper :: (I.Indexable v, Num a, Eq a) => BigMatrix v a -> BN.BigNumber a -> Int -> v (BN.BigNumber a)
     _multRowHelper (BigMatrix values rows cols) multValue rowIndex = I.link [startElems, newElems, endElems]
         where actualRowIndex = rows * rowIndex
               multRow = I.draw cols (I.skip actualRowIndex values)
@@ -294,7 +294,7 @@ module BigMatrix (
               newElems = Fu.fmap (BN.multiply multValue) multRow
               endElems = I.skip (actualRowIndex + cols) values
 
-    multRow :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    multRow :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     multRow mat@(BigMatrix _ rows cols) multValue rowIndex
         | not $ BN.isInteger rowIndex = A.failure A.NotInteger "Row Index must be a nonnegative integer"
         | (intRowIndex < 0) || (intRowIndex >= rows) = A.failure A.IndexOutOfBounds "Row index outside the bounds of the matrix"
@@ -314,7 +314,7 @@ module BigMatrix (
               higherElems = I.draw cols (I.skip maxRowIndex values)
               endElems = I.skip (maxRowIndex + cols) values
 
-    swapRows :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    swapRows :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     swapRows mat@(BigMatrix _ rows cols) rowIndex1 rowIndex2
         | not $ (BN.isInteger rowIndex1) && (BN.isInteger rowIndex2) = A.failure A.NotInteger "Row indices must be nonnegative integers"
         | (intRowIndex1 < 0) || (intRowIndex1 >= rows) || (intRowIndex1 < 0) || (intRowIndex2 >= rows) = A.failure A.IndexOutOfBounds "Row indices outside the bounds of the matrix"
@@ -323,9 +323,9 @@ module BigMatrix (
               intRowIndex2 = BN.asIntegral rowIndex2
               resultValues = _swapRowsHelper mat intRowIndex1 intRowIndex2
 
-    _addColHelper :: (I.Indexable v) => v (BN.BigNumber a) -> Int -> Int -> Int -> v (BN.BigNumber a)
+    _addColHelper :: (I.Indexable v, Num a, Eq a) => v (BN.BigNumber a) -> Int -> Int -> Int -> v (BN.BigNumber a)
     _addColHelper table cols fromCol toCol
-        | I.none table = I.empty
+        | Fo.null table = I.empty
         | otherwise = I.attach newRow nextRows
         where currentRow = I.draw cols table
               restRows = I.skip cols table
@@ -337,7 +337,7 @@ module BigMatrix (
               newRow = I.link [startElems, I.only newElem, endElems]
               nextRows = _addColHelper restRows cols fromCol toCol
 
-    addCol :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    addCol :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     addCol (BigMatrix table rows cols) fromCol toCol
         | not $ (BN.isInteger fromCol) && (BN.isInteger toCol) = A.failure A.NotInteger "Column indices must be nonnegative integers"
         | (fromColInt < 0) || (fromColInt >= cols) || (toColInt < 0) || (toColInt >= cols) = A.failure A.IndexOutOfBounds "Row Indices outside the bounds of the matrix"
@@ -347,9 +347,9 @@ module BigMatrix (
               toColInt = BN.asIntegral toCol
               resultValues = _addColHelper table cols fromColInt toColInt
 
-    _multColHelper :: (I.Indexable v) => v (BN.BigNumber a) -> Int -> BN.BigNumber a -> Int -> v BN.BigNumber a
+    _multColHelper :: (I.Indexable v, Num a, Eq a) => v (BN.BigNumber a) -> Int -> BN.BigNumber a -> Int -> v (BN.BigNumber a)
     _multColHelper table cols multValue colIndex
-        | I.none table = I.empty
+        | Fo.null table = I.empty
         | otherwise = I.attach newRow nextRows
         where currentRow = I.draw cols table
               restRows = I.skip cols table
@@ -360,7 +360,7 @@ module BigMatrix (
               newRow = I.link [startElems, I.only newElem, endElems]
               nextRows = _multColHelper restRows cols multValue colIndex
 
-    multCol :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    multCol :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     multCol (BigMatrix table rows cols) multValue colIndex
         | not $ BN.isInteger colIndex = A.failure A.NotInteger "Column index must be a nonnegative integer"
         | (intColIndex < 0) || (intColIndex >= cols) = A.failure A.IndexOutOfBounds "Column index outside the bounds of the matrix"
@@ -370,7 +370,7 @@ module BigMatrix (
 
     _swapColsHelper :: (I.Indexable v) => v (BN.BigNumber a) -> Int -> Int -> Int -> v (BN.BigNumber a)
     _swapColsHelper table cols colIndex1 colIndex2
-        | I.none table = I.empty
+        | Fo.null table = I.empty
         | otherwise = I.attach newRow nextRows
         where currentRow = I.draw cols table
               restRows = I.skip cols table
@@ -384,7 +384,7 @@ module BigMatrix (
               newRow = I.link [startElems, I.only lowerElem, midElems, I.only higherElem, endElems]
               nextRows = _swapColsHelper restRows cols colIndex1 colIndex2
 
-    swapCols :: (I.Indexable v) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
+    swapCols :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BigMatrix v a)
     swapCols (BigMatrix table rows cols) colIndex1 colIndex2
         | not $ (BN.isInteger colIndex1) && (BN.isInteger colIndex2) = A.failure A.NotInteger "Column indices must be nonnegative integers"
         | (intColIndex1 < 0) || (intColIndex1 >= cols) || (intColIndex2 < 0) || (intColIndex2 >= cols) = A.failure A.IndexOutOfBounds "Column indices outside the bounds of the matrix"
@@ -397,12 +397,12 @@ module BigMatrix (
     toContainer (BigMatrix values _ _) = I.switch values
 
     to2dContainer :: (I.Indexable v1, I.Indexable v2) => BigMatrix v1 a -> v2 (v2 (BN.BigNumber a))
-    to2dContainer (BigMatrix values _ cols) = _to2dContainerHelper values cols
+    to2dContainer (BigMatrix values _ cols) = _to2dContainerHelper (I.switch values) cols
 
-    _to2dContainerHelper :: (I.Indexable v1, I.Indexable v2) => v1 a -> Int -> v2 (v2 (BN.BigNumber a))
+    _to2dContainerHelper :: (I.Indexable v) => v (BN.BigNumber a) -> Int -> v (v (BN.BigNumber a))
     _to2dContainerHelper values cols
-        | I.none values = I.empty
-        | otherwise = I.attach currentRow nextRows
-        where currentRow = I.draw values cols
-              restRows = I.skip values cols
+        | Fo.null values = I.empty
+        | otherwise = I.prepend currentRow nextRows
+        where currentRow = I.draw cols values
+              restRows = I.skip cols values
               nextRows = _to2dContainerHelper restRows cols

@@ -19,7 +19,9 @@ module BigTensor (
     } deriving (G.Generic)
 
     instance (I.Indexable v, I.Indexable d, Eq a) => Eq (BigTensor v d a) where
-        (==) (BigTensor leftVals leftDimensions) (BigTensor rightVals rightDimensions) = leftDimensions == rightDimensions && leftVals == rightVals
+        (==) (BigTensor leftVals leftDimensions) (BigTensor rightVals rightDimensions) = equalSize && equalValues
+            where equalSize = I.equalIndexable leftDimensions rightDimensions
+                  equalValues = I.equalIndexable leftVals rightVals
 
     instance (I.Indexable v, I.Indexable d, H.Hashable a) => H.Hashable (BigTensor v d a) where
         hashWithSalt salt (BigTensor values dimensions) = H.hashWithSalt dimensionHash valueHash

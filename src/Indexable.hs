@@ -21,6 +21,7 @@ module Indexable (
     sieve,
     only,
     link,
+    equalIndexable,
     hashIndexable
 ) where
     import qualified Data.Maybe as M
@@ -113,10 +114,10 @@ module Indexable (
         attach = (++)
         sieve = filter
 
-    equalIndexable :: (I.Indexable f) => f a -> f a -> Bool
+    equalIndexable :: (Indexable f, Eq a) => f a -> f a -> Bool
     equalIndexable left right = equalSize && equalValues
         where equalSize = (Fo.length left) == (Fo.length right)
               equalValues = Fo.and $ pairOn (==) left right
 
-    hashIndexable :: (I.Indexable f) => Int -> f a -> Int
+    hashIndexable :: (Indexable f, H.Hashable a) => Int -> f a -> Int
     hashIndexable salt indexable = Fo.sum $ Fu.fmap (H.hashWithSalt salt) indexable
