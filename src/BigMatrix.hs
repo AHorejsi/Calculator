@@ -28,9 +28,7 @@ module BigMatrix (
     swapRows,
     addCol,
     multCol,
-    swapCols,
-    toContainer,
-    to2dContainer
+    swapCols
 ) where
     import Prelude hiding (negate, null)
     import qualified GHC.Generics as G
@@ -41,7 +39,6 @@ module BigMatrix (
     import qualified Indexable as I
     import qualified Actions as A
     import qualified BigNumber as BN
-    import qualified BigVector as BV
 
     data BigMatrix v a = BigMatrix {
         _values :: v (BN.BigNumber a),
@@ -53,13 +50,13 @@ module BigMatrix (
         (==) left@(BigMatrix leftValues _ _) right@(BigMatrix rightValues _ _) = I.equalIndexable leftValues rightValues
 
     instance (I.Indexable v, H.Hashable a) => H.Hashable (BigMatrix v a) where
-        hashWithSalt salt (BigMatrix values rows cols) = H.hashWithSalt sizeHash hashed
+        hashWithSalt salt (BigMatrix values rows cols) = H.hashWithSalt sizeHash valueHash
             where rowHash = H.hashWithSalt salt rows
                   colHash = H.hashWithSalt salt cols
                   sizeHash = H.hashWithSalt rowHash colHash
-                  hashed = H.hashWithSalt salt values
+                  valueHash = I.hashIndexable salt values
 
-    matrix :: (I.Indexable f, I.Indexable v) => f (BN.BigNumber a) -> Int -> Int -> BigMatrix v a
+    matrix :: (Fo.Foldable f, I.Indexable v) => f (BN.BigNumber a) -> Int -> Int -> BigMatrix v a
     matrix values rows cols
         | rows <= 0 || cols <= 0 = error "The number of rows must be greater than 0 and the number of columns must be greater than 0"
         | valueCount /= dimensionSize = error "Value count does not fit the specified dimensions"
@@ -71,13 +68,13 @@ module BigMatrix (
     rowsInt :: BigMatrix v a -> Int
     rowsInt (BigMatrix _ rows _) = rows
 
-    rows :: (Num a) => BigMatrix v a -> BN.BigNumber a
+    rows :: (Num a, Eq a) => BigMatrix v a -> BN.BigNumber a
     rows = BN.asNumber . rowsInt
 
     columnsInt :: BigMatrix v a -> Int
     columnsInt (BigMatrix _ _ cols) = cols
 
-    columns :: (Num a) => BigMatrix v a -> BN.BigNumber a
+    columns :: (Num a, Eq a) => BigMatrix v a -> BN.BigNumber a
     columns = BN.asNumber . columnsInt
 
     equalSize :: BigMatrix v a -> BigMatrix v a -> Bool
@@ -90,9 +87,9 @@ module BigMatrix (
     square (BigMatrix _ rows cols) = rows == cols
 
     null :: (Fo.Foldable v, Num a, Eq a) => BigMatrix v a -> Bool
-    null (BigMatrix values _ _) = Fo.all (==BN.zero) values
+    null (BigMatrix values _ _) = Fo.all (==BN.zeroValue) values
 
-    get :: (I.Indexable v, RealFrac a) => BigMatrix v a -> BN.BigNumber a -> BN.BigNumber a -> A.Computation (BN.BigNumber a)
+    get :: (I.Indexable v, RealFrac b, RealFrac c) => BigMatrix v a -> BN.BigNumber b -> BN.BigNumber c -> A.Computation (BN.BigNumber a)
     get matrix rowIndex colIndex
         | not $ (BN.isInteger rowIndex) && (BN.isInteger colIndex) = A.failure A.NotInteger "Indices must be nonnegative integers"
         | otherwise = getInt matrix intRowIndex intColIndex
@@ -130,7 +127,7 @@ module BigMatrix (
     scalarMultiplyRight left right = _unaryElementwise (`BN.multiply` right) left
 
     negate :: (Fu.Functor v, Num a, Eq a) => BigMatrix v a -> BigMatrix v a
-    negate = scalarMultiplyLeft BN.negOne
+    negate = scalarMultiplyLeft BN.negOneValue
 
     _rowTraversal :: Int -> Int -> Int -> (Int, Int)
     _rowTraversal rowIndex colIndex cols = (nextRowIndex, nextColIndex)
@@ -140,7 +137,7 @@ module BigMatrix (
 
     _matrixMultiplyHelper2 :: (I.Indexable v, Num a, Eq a) => Int -> Int -> Int -> Int -> BigMatrix v a -> BigMatrix v a -> BN.BigNumber a
     _matrixMultiplyHelper2 index endIndex rowIndex colIndex left right
-        | index == endIndex = BN.zero
+        | index == endIndex = BN.zeroValue
         | otherwise = BN.plus elem next
         where leftElem = A.value $ getInt left rowIndex index
               rightElem = A.value $ getInt right index colIndex
@@ -163,12 +160,12 @@ module BigMatrix (
 
     _determinantHelper2 :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> Int -> BN.BigNumber a
     _determinantHelper2 mat@(BigMatrix _ _ cols) colIndex
-        | colIndex == cols = BN.zero
+        | colIndex == cols = BN.zeroValue
         | otherwise = BN.plus elem next
-        where a = BN.power BN.negOne (BN.asNumber colIndex)
+        where a = BN.power BN.negOneValue (BN.asNumber colIndex)
               b = A.value $ getInt mat 0 colIndex
               c = (_determinantHelper1 . A.value) $ _submatrixHelper1 mat 0 colIndex
-              elem = Fo.foldr BN.multiply BN.one [c, b, a]
+              elem = Fo.foldr BN.multiply BN.oneValue [c, b, a]
               next = _determinantHelper2 mat (colIndex + 1)
 
     _determinantHelper1 :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> BN.BigNumber a
@@ -253,7 +250,7 @@ module BigMatrix (
     matrixInverse :: (I.Indexable v, RealFloat a, Eq a) => BigMatrix v a -> A.Computation (BigMatrix v a)
     matrixInverse mat@(BigMatrix _ rows cols)
         | not $ square mat = A.failure A.NonsquareMatrix "A matrix must be square to have an inverse"
-        | BN.zero == detValue = A.failure A.DeterminantOfZero "A matrix must not have a determinant of zero to have an inverse"
+        | BN.zeroValue == detValue = A.failure A.DeterminantOfZero "A matrix must not have a determinant of zero to have an inverse"
         | otherwise = A.success $ case rows of 
                                     1 -> BigMatrix (I.only invOfDetValue) 1 1
                                     2 -> scalarMultiplyLeft invOfDetValue mat
@@ -392,17 +389,3 @@ module BigMatrix (
         where intColIndex1 = BN.asIntegral colIndex1
               intColIndex2 = BN.asIntegral colIndex2
               resultValues = _swapColsHelper table cols intColIndex1 intColIndex2
-
-    toContainer :: (I.Indexable v1, I.Indexable v2) => BigMatrix v1 a -> v2 (BN.BigNumber a)
-    toContainer (BigMatrix values _ _) = I.switch values
-
-    to2dContainer :: (I.Indexable v1, I.Indexable v2) => BigMatrix v1 a -> v2 (v2 (BN.BigNumber a))
-    to2dContainer (BigMatrix values _ cols) = _to2dContainerHelper (I.switch values) cols
-
-    _to2dContainerHelper :: (I.Indexable v) => v (BN.BigNumber a) -> Int -> v (v (BN.BigNumber a))
-    _to2dContainerHelper values cols
-        | Fo.null values = I.empty
-        | otherwise = I.prepend currentRow nextRows
-        where currentRow = I.draw cols values
-              restRows = I.skip cols values
-              nextRows = _to2dContainerHelper restRows cols

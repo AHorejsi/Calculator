@@ -26,7 +26,6 @@ dependencies:
 - hashable
 - unordered-containers
 - numbers
-- parsec
 
 library:
   source-dirs: src

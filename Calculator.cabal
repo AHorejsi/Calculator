@@ -28,18 +28,13 @@ source-repository head
 library
   exposed-modules:
       Actions
+      BigEntity
       BigMatrix
       BigNumber
-      BigSet
       BigTensor
-      BigTuple
       BigVector
-      CalcSettings
       Indexable
-      MathEntity
-      Parse
       Stringify
-      Underlying
   other-modules:
       Paths_Calculator
   hs-source-dirs:
@@ -49,7 +44,6 @@ library
     , containers
     , hashable
     , numbers
-    , parsec
     , unordered-containers
     , vector
   default-language: Haskell2010
@@ -67,7 +61,6 @@ executable Calculator
     , containers
     , hashable
     , numbers
-    , parsec
     , unordered-containers
     , vector
   default-language: Haskell2010
@@ -87,7 +80,6 @@ test-suite Calculator-Test
     , containers
     , hashable
     , numbers
-    , parsec
     , unordered-containers
     , vector
     , vscode-haskell-config

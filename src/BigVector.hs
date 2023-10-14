@@ -24,8 +24,7 @@ module BigVector (
     absolute,
     normalize,
     angle,
-    distance,
-    toContainer
+    distance
 ) where
     import Prelude hiding (negate, null)
     import qualified GHC.Generics as G
@@ -55,13 +54,13 @@ module BigVector (
     sizeInt :: (Fo.Foldable v) => BigVector v a -> Int
     sizeInt (BigVector values) = Fo.length values
 
-    size :: (Fo.Foldable v, Num a) => BigVector v a -> BN.BigNumber a
+    size :: (Fo.Foldable v, Num a, Eq a) => BigVector v a -> BN.BigNumber a
     size = BN.asNumber . sizeInt
 
     null :: (Fo.Foldable v, Num a, Eq a) => BigVector v a -> Bool
-    null (BigVector values) = Fo.all (==BN.zero) values
+    null (BigVector values) = Fo.all (==BN.zeroValue) values
 
-    equalSize :: (Fo.Foldable v) => BigVector v a -> BigVector v b -> Bool
+    equalSize :: (Fo.Foldable v1, Fo.Foldable v2) => BigVector v1 a -> BigVector v2 b -> Bool
     equalSize left right = (sizeInt left) == (sizeInt right)
 
     getInt :: (I.Indexable v) => BigVector v a -> Int -> A.Computation (BN.BigNumber a)
@@ -70,7 +69,7 @@ module BigVector (
         | otherwise = A.success $ I.at values index
         where size = sizeInt vec
 
-    get :: (I.Indexable v, RealFrac a) => BigVector v a -> BN.BigNumber a -> A.Computation (BN.BigNumber a)
+    get :: (I.Indexable v, RealFrac b) => BigVector v a -> BN.BigNumber b -> A.Computation (BN.BigNumber a)
     get vec index
         | not $ BN.isInteger index = A.failure A.NotInteger "All indices must be integers"
         | otherwise = getInt vec intIndex
@@ -93,7 +92,7 @@ module BigVector (
     dot :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     dot left@(BigVector leftValues) right@(BigVector rightValues)
         | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must have the same length for this operation"
-        | otherwise = A.success $ Fo.foldr BN.plus BN.zero (I.pairOn BN.multiply leftValues rightValues)
+        | otherwise = A.success $ Fo.foldr BN.plus BN.zeroValue (I.pairOn BN.multiply leftValues rightValues)
 
     cross2D :: (I.Indexable v, Num a, Eq a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     cross2D left right
@@ -132,7 +131,7 @@ module BigVector (
     scalarMultiplyRight left right = _unaryElementwise (`BN.multiply` right) left
 
     negate :: (Fu.Functor v, Num a, Eq a) => BigVector v a -> BigVector v a
-    negate = scalarMultiplyLeft BN.negOne
+    negate = scalarMultiplyLeft BN.negOneValue
 
     absolute :: (I.Indexable v, RealFloat a) => BigVector v a -> BN.BigNumber a
     absolute vec = (BN.squareRoot . A.value) $ dot vec vec
@@ -151,9 +150,6 @@ module BigVector (
     distance :: (I.Indexable v, RealFloat a) => BigVector v a -> BigVector v a -> A.Computation (BN.BigNumber a)
     distance left right
         | not $ equalSize left right = A.failure A.UnequalDimensions "Vectors must have equal dimensions for this operation"
-        | otherwise = ((A.success . BN.squareRoot) . (Fo.foldr BN.plus BN.zero)) $ Fu.fmap square (_values subtValue)
+        | otherwise = ((A.success . BN.squareRoot) . (Fo.foldr BN.plus BN.zeroValue)) $ Fu.fmap square (_values subtValue)
         where subtValue = A.value $ minus left right
-              square = (`BN.power` BN.two)
-
-    toContainer :: (I.Indexable v1, I.Indexable v2) => BigVector v1 a -> v2 (BN.BigNumber a)
-    toContainer (BigVector values) = I.switch values
+              square = (`BN.power` BN.twoValue)

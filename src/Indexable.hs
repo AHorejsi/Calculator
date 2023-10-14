@@ -120,4 +120,5 @@ module Indexable (
               equalValues = Fo.and $ pairOn (==) left right
 
     hashIndexable :: (Indexable f, H.Hashable a) => Int -> f a -> Int
-    hashIndexable salt indexable = Fo.sum $ Fu.fmap (H.hashWithSalt salt) indexable
+    hashIndexable salt indexable = H.hashWithSalt salt hashedValues
+        where hashedValues = Fo.sum $ Fu.fmap (H.hashWithSalt salt) indexable

@@ -14,6 +14,7 @@ module Actions (
         NotComplex,
         NegativeInput,
         NotComparable,
+        NotConvertible,
         IndexOutOfBounds,
         UnequalDimensions
     ),
@@ -70,6 +71,8 @@ module Actions (
         NotComplex |
         -- | Indicates that the associated computation required a comparable type, but was provided something else
         NotComparable |
+        -- | Indicates that the associated computation did not allow the conversion from one type to another
+        NotConvertible |
         -- | Indicates that the associated computation received an index that was outside the bounds of the structure in question
         IndexOutOfBounds |
         -- | Indicates that the associated computation required multiple structures of the same dimensions, but received some that were not
@@ -79,7 +82,7 @@ module Actions (
         deriving (Enum, Show)
 
     -- | Represents the result of a computation that may have succeeded or failed. Similar to
-    -- the 'Maybe' type except the failure type contains information about what went wrong
+    -- | the 'Maybe' type except the failure type contains information about what went wrong
     data Computation a =
         -- | Represents a successful computation that produced valid output
         Success {
@@ -121,6 +124,19 @@ module Actions (
     type ErrableBinaryAction a b c = BinaryAction a b (Computation c)
     -- | Represents a computation that takes 3 inputs. Could fail on invalid inputs
     type ErrableTernaryAction a b c d = TernaryAction a b c (Computation d)
+
+    class Addable a where
+        plus :: a -> a -> Computation a
+
+    class Subtractable a where
+        minus :: a -> a -> Computation a
+
+    class Multipliable a where
+        multiply :: a -> a -> Computation a
+
+    class Divisible a where
+        divide :: a -> a -> Computation a
+
 
     -- | Function composition for 2-input functions
     (.:) :: UnaryAction c d -> BinaryAction a b c -> BinaryAction a b d
